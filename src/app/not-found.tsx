@@ -18,7 +18,7 @@ export default function NotFound() {
             الصفحة الرئيسية
           </Link>
           <Link href="/checkout" style={{ background: '#fff', color: '#6747B2', border: '1px solid #EDE8F5', fontSize: 14, fontWeight: 700, padding: '12px 24px', borderRadius: 12, display: 'inline-block' }}>
-            اشترِ الكتاب
+            اشترِ الآن
           </Link>
         </div>
       </div>

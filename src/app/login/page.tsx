@@ -1,11 +1,11 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { signIn, signInWithGoogle } from '@/lib/auth'
+import { signIn, signInWithGoogle, isValidEmail, mapAuthError, getCurrentUser, resetPassword } from '@/lib/auth'
 import { C } from '@/lib/theme'
 import {
-  IconMail, IconLock, IconEye, IconEyeOff,
+  IconMail, IconEye, IconEyeOff,
   IconShieldCheck, IconBolt, IconStarFilled,
 } from '@tabler/icons-react'
 
@@ -15,9 +15,31 @@ export default function LoginPage() {
   const [showPwd, setShowPwd]   = useState(false)
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
+  const [checking, setChecking] = useState(true)
+  const [resetSent, setResetSent] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    getCurrentUser().then(user => {
+      if (!active) return
+      if (user) {
+        const next = new URLSearchParams(window.location.search).get('next')
+        window.location.href = next || '/library'
+      } else {
+        setChecking(false)
+      }
+    })
+    return () => { active = false }
+  }, [])
 
   const focus = (e: React.FocusEvent<HTMLInputElement>) => { e.target.style.borderColor=C.primary; e.target.style.boxShadow='0 0 0 3px rgba(103,71,178,.1)' }
   const blur  = (e: React.FocusEvent<HTMLInputElement>) => { e.target.style.borderColor=C.border;  e.target.style.boxShadow='none' }
+
+  if (checking) return (
+    <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Th',serif", color:C.text3, fontSize:14 }}>
+      جاري التحميل...
+    </div>
+  )
 
   const inpStyle: React.CSSProperties = {
     width:'100%', height:46, background:'#FAFAFA', border:`1px solid ${C.border}`,
@@ -28,20 +50,34 @@ export default function LoginPage() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     if (!email || !password) { setError('يرجى إدخال البريد وكلمة المرور'); return }
+    if (!isValidEmail(email)) { setError('صيغة البريد الإلكتروني غير صحيحة'); return }
     setLoading(true); setError('')
     try {
       await signIn(email, password)
-      window.location.href = '/library'
-    } catch {
-      setError('البريد أو كلمة المرور غير صحيحة')
+      const next = new URLSearchParams(window.location.search).get('next')
+      window.location.href = next || '/library'
+    } catch (err) {
+      setError(mapAuthError(err))
     } finally { setLoading(false) }
   }
 
+  async function handleForgotPassword() {
+    if (!email) { setError('أدخلي بريدك الإلكتروني أولاً ثم اضغطي "نسيت كلمة المرور؟"'); return }
+    if (!isValidEmail(email)) { setError('صيغة البريد الإلكتروني غير صحيحة'); return }
+    setError(''); setResetSent(false)
+    try {
+      await resetPassword(email)
+      setResetSent(true)
+    } catch (err) {
+      setError(mapAuthError(err))
+    }
+  }
+
   return (
-    <div style={{ width:'100vw', height:'100vh', overflow:'hidden', display:'grid', gridTemplateColumns:'1fr 1fr', fontFamily:"'Th','Noto Kufi Arabic',serif", direction:'rtl' }}>
+    <div className="auth-shell" style={{ width:'100vw', height:'100vh', overflow:'hidden', display:'grid', gridTemplateColumns:'1fr 1fr', fontFamily:"'Th','Noto Kufi Arabic',serif", direction:'rtl' }}>
 
       {/* Left: Brand panel */}
-      <div style={{ background: C.text1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:48, position:'relative', overflow:'hidden' }}>
+      <div className="auth-brand-panel" style={{ background: C.text1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:48, position:'relative', overflow:'hidden' }}>
         <div style={{ position:'absolute', top:'15%', left:'25%', width:420, height:420, borderRadius:'50%', background:'radial-gradient(circle,rgba(103,71,178,0.38) 0%,transparent 65%)', pointerEvents:'none' }} />
         <div style={{ position:'absolute', bottom:'8%', right:'8%', width:280, height:280, borderRadius:'50%', background:'radial-gradient(circle,rgba(54,219,156,0.14) 0%,transparent 65%)', pointerEvents:'none' }} />
         <div style={{ position:'relative', zIndex:1, textAlign:'center' }}>
@@ -79,7 +115,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right: Form */}
-      <div style={{ background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', padding:'40px 52px', position:'relative', backgroundImage:'radial-gradient(circle, rgba(103,71,178,0.04) 1px, transparent 1px)', backgroundSize:'28px 28px' }}>
+      <div className="auth-form-panel" style={{ background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', padding:'40px 52px', position:'relative', backgroundImage:'radial-gradient(circle, rgba(103,71,178,0.04) 1px, transparent 1px)', backgroundSize:'28px 28px' }}>
         <div style={{ width:'100%', maxWidth:340, position:'relative', zIndex:1 }}>
 
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:32 }}>
@@ -98,28 +134,29 @@ export default function LoginPage() {
 
           <form onSubmit={handleLogin}>
             <div style={{ marginBottom:12 }}>
-              <label style={{ display:'block', fontSize:10, fontWeight:700, color:C.text2, textTransform:'uppercase', letterSpacing:0.4, marginBottom:5 }}>البريد الإلكتروني</label>
+              <label htmlFor="login-email" style={{ display:'block', fontSize:10, fontWeight:700, color:C.text2, textTransform:'uppercase', letterSpacing:0.4, marginBottom:5 }}>البريد الإلكتروني</label>
               <div style={{ position:'relative' }}>
-                <input type="email" placeholder="example@email.com" value={email} onChange={e=>setEmail(e.target.value)} onFocus={focus} onBlur={blur} style={inpStyle} />
-                <IconMail size={16} color={C.text4} style={{ position:'absolute', right:13, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }} />
+                <input id="login-email" type="email" autoComplete="email" required placeholder="example@email.com" value={email} onChange={e=>setEmail(e.target.value)} onFocus={focus} onBlur={blur} style={inpStyle} />
+                <IconMail size={16} color={C.text4} aria-hidden="true" style={{ position:'absolute', right:13, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }} />
               </div>
             </div>
 
             <div style={{ marginBottom:8 }}>
-              <label style={{ display:'block', fontSize:10, fontWeight:700, color:C.text2, textTransform:'uppercase', letterSpacing:0.4, marginBottom:5 }}>كلمة المرور</label>
+              <label htmlFor="login-password" style={{ display:'block', fontSize:10, fontWeight:700, color:C.text2, textTransform:'uppercase', letterSpacing:0.4, marginBottom:5 }}>كلمة المرور</label>
               <div style={{ position:'relative' }}>
-                <input type={showPwd?'text':'password'} placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)} onFocus={focus} onBlur={blur} style={inpStyle} />
-                <button type="button" onClick={()=>setShowPwd(!showPwd)} style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:C.text4, display:'flex', alignItems:'center' }}>
+                <input id="login-password" type={showPwd?'text':'password'} autoComplete="current-password" required placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)} onFocus={focus} onBlur={blur} style={inpStyle} />
+                <button type="button" onClick={()=>setShowPwd(!showPwd)} aria-label={showPwd ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'} aria-pressed={showPwd} style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:C.text4, display:'flex', alignItems:'center' }}>
                   {showPwd ? <IconEyeOff size={16}/> : <IconEye size={16}/>}
                 </button>
               </div>
             </div>
 
-            {error && <p style={{ fontSize:12, color:'#A32D2D', marginBottom:10, padding:'8px 12px', background:'#FEF2F2', borderRadius:8 }}>{error}</p>}
+            {error && <p role="alert" style={{ fontSize:12, color:'#A32D2D', marginBottom:10, padding:'8px 12px', background:'#FEF2F2', borderRadius:8 }}>{error}</p>}
+            {resetSent && <p role="status" style={{ fontSize:12, color:'#085041', marginBottom:10, padding:'8px 12px', background:'#E1F5EE', borderRadius:8 }}>تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني</p>}
 
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
               <span style={{ fontSize:12, color:C.text2 }}>تذكرني</span>
-              <button type="button" style={{ fontSize:12, fontWeight:700, color:C.primary, background:'none', border:'none', cursor:'pointer', fontFamily:"'Th',serif" }}>نسيت كلمة المرور؟</button>
+              <button type="button" onClick={handleForgotPassword} style={{ fontSize:12, fontWeight:700, color:C.primary, background:'none', border:'none', cursor:'pointer', fontFamily:"'Th',serif" }}>نسيت كلمة المرور؟</button>
             </div>
 
             <button type="submit" disabled={loading} style={{ width:'100%', height:48, background:loading?'#8b6dd4':C.primary, color:'#fff', border:'none', borderRadius:11, fontSize:14, fontWeight:900, cursor:loading?'wait':'pointer', fontFamily:"'Th',serif", boxShadow:'0 2px 12px rgba(103,71,178,.28)', transition:'all .2s' }}>

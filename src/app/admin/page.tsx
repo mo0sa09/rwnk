@@ -9,14 +9,20 @@ import {
   IconLayoutDashboard, IconUsers, IconBuildingStore, IconTag,
   IconPalette, IconSettings, IconBell, IconPlus,
   IconCircleCheck, IconAlertCircle, IconCheck,
+  IconLayoutGrid, IconQuote, IconHelpCircle, IconStarFilled,
+  IconColumns, IconFileText,
 } from '@tabler/icons-react'
 import { signOut } from '@/lib/auth'
+import { CrudSection } from '@/components/admin/CrudSection'
+import { ContentTab } from '@/components/admin/ContentTab'
+import { PagesTab } from '@/components/admin/PagesTab'
 
 // ── Types ────────────────────────────────────────────────────
 interface StoreForm {
   store_name: string; store_tagline: string; product_name: string
   product_price: number; whatsapp: string; email: string
   instagram: string; twitter: string; downloads_limit: number
+  product_description: string; product_image_url: string | null
 }
 interface DiscountCode {
   id: string; code: string; discount_type: 'percent'|'fixed'
@@ -25,7 +31,7 @@ interface DiscountCode {
 }
 interface Stats { revenue: number; customers: number; downloads: number; purchases: any[] }
 
-type Tab = 'dashboard' | 'customers' | 'theme' | 'store' | 'discounts' | 'settings'
+type Tab = 'dashboard' | 'customers' | 'theme' | 'store' | 'content' | 'testimonials' | 'faqs' | 'features' | 'comparison' | 'pages' | 'discounts' | 'settings'
 
 // ── Helpers ──────────────────────────────────────────────────
 const W = '#fff'
@@ -43,12 +49,18 @@ const blur = (e: React.FocusEvent<HTMLInputElement|HTMLSelectElement>) => {
 }
 
 const NAV: { id: Tab; label: string; icon: string }[] = [
-  { id: 'dashboard', label: 'لوحة التحكم', icon: 'dashboard' },
-  { id: 'customers', label: 'العملاء',      icon: 'customers' },
-  { id: 'store',     label: 'إعدادات المتجر',icon: 'store' },
-  { id: 'discounts', label: 'أكواد الخصم',  icon: 'discounts' },
-  { id: 'theme',     label: 'الثيم',         icon: 'theme' },
-  { id: 'settings',  label: 'الإعدادات',     icon: 'settings' },
+  { id: 'dashboard',     label: 'لوحة التحكم',       icon: 'dashboard' },
+  { id: 'customers',     label: 'العملاء',            icon: 'customers' },
+  { id: 'store',         label: 'إعدادات المتجر',     icon: 'store' },
+  { id: 'content',       label: 'المحتوى',            icon: 'content' },
+  { id: 'testimonials',  label: 'الشهادات',           icon: 'testimonials' },
+  { id: 'faqs',          label: 'الأسئلة الشائعة',   icon: 'faqs' },
+  { id: 'features',      label: 'المميزات',           icon: 'features' },
+  { id: 'comparison',    label: 'المقارنة',           icon: 'comparison' },
+  { id: 'pages',         label: 'الصفحات',            icon: 'pages' },
+  { id: 'discounts',     label: 'أكواد الخصم',       icon: 'discounts' },
+  { id: 'theme',         label: 'الثيم',              icon: 'theme' },
+  { id: 'settings',      label: 'الإعدادات',          icon: 'settings' },
 ]
 
 const WEEKLY = [3,7,5,9,6,11,8]
@@ -77,6 +89,7 @@ export default function AdminPage() {
     product_name: 'كتاب رَوْنَق', product_price: 15,
     whatsapp: '+96500000000', email: 'hello@rwnk.co',
     instagram: '@rwnak.official', twitter: '@rwnk', downloads_limit: 5,
+    product_description: '', product_image_url: null,
   })
 
   // Theme
@@ -106,25 +119,26 @@ export default function AdminPage() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       ) as any
 
-      // Stats
-      const { data: purchases } = await sb.from('purchases').select('*').eq('status','completed').order('created_at',{ascending:false})
-      const { data: dls } = await sb.from('downloads').select('id')
-      const revenue = (purchases ?? []).reduce((s:number, p:any) => s + (p.amount ?? 0), 0)
+      // Purchases/downloads/customers — no anon-readable RLS policy exists for
+      // these (by design), so they're fetched through the service-role admin API.
+      try {
+        const statsRes = await fetch('/api/admin/stats')
+        const statsJson = await statsRes.json()
+        if (statsRes.ok && statsJson.data) {
+          setStats({ revenue: statsJson.data.revenue, customers: statsJson.data.customers, downloads: statsJson.data.downloads, purchases: statsJson.data.purchases })
+          setCustomers(statsJson.data.customerList ?? [])
+        }
+      } catch {}
 
-      setStats({ revenue, customers: (purchases ?? []).length, downloads: (dls ?? []).length, purchases: (purchases ?? []).slice(0,5) })
-
-      // Customers (unique emails)
-      const uniq = [...new Map((purchases ?? []).map((p:any) => [p.email, p])).values()]
-      setCustomers(uniq)
-
-      // Store settings
+      // Store settings — public SELECT policy, safe to read with the anon key
       const { data: ss } = await sb.from('store_settings').select('*').single()
       if (ss) setStore({ ...store, ...ss })
 
-      // Discounts (admin only via service role — will be empty without service role)
+      // Discounts — admin-only, goes through the service-role API route
       try {
-        const { data: dc } = await sb.from('discount_codes').select('*').order('created_at',{ascending:false})
-        setDiscounts(dc ?? [])
+        const dcRes = await fetch('/api/admin/discounts')
+        const dcJson = await dcRes.json()
+        setDiscounts(dcJson.data ?? [])
       } catch {}
 
     } catch (e) { console.error(e) }
@@ -134,9 +148,8 @@ export default function AdminPage() {
   async function saveStoreSettings() {
     setSaving(true); setMsg('')
     try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!) as any
-      await sb.from('store_settings').upsert({ ...store, id: undefined } as any)
+      const res = await fetch('/api/admin/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(store) })
+      if (!res.ok) throw new Error((await res.json()).error ?? 'حدث خطأ')
       setMsg('✓ تم الحفظ بنجاح')
     } catch { setMsg('✗ حدث خطأ في الحفظ') }
     setSaving(false)
@@ -146,42 +159,40 @@ export default function AdminPage() {
   async function addDiscount() {
     if (!newDisc.code || !newDisc.value) return
     try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!) as any
-      await sb.from('discount_codes').insert({
-        code: newDisc.code.toUpperCase(),
-        discount_type: newDisc.type,
-        discount_value: parseFloat(newDisc.value),
-        max_uses: newDisc.maxUses ? parseInt(newDisc.maxUses) : null,
-        expires_at: newDisc.expiresAt || null,
+      const res = await fetch('/api/admin/discounts', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: newDisc.code.toUpperCase(),
+          discount_type: newDisc.type,
+          discount_value: parseFloat(newDisc.value),
+          max_uses: newDisc.maxUses ? parseInt(newDisc.maxUses) : null,
+          expires_at: newDisc.expiresAt || null,
+        }),
       })
+      if (!res.ok) throw new Error((await res.json()).error ?? 'حدث خطأ')
       setNewDisc({ code:'', type:'percent', value:'', maxUses:'', expiresAt:'' })
       loadData()
     } catch (e: any) { alert(e.message) }
   }
 
   async function toggleDiscount(id: string, current: boolean) {
-    const { createClient } = await import('@supabase/supabase-js')
-    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!) as any
-    await sb.from('discount_codes').update({ is_active: !current } as any).eq('id', id)
+    await fetch(`/api/admin/discounts/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: !current }) })
     loadData()
   }
 
   async function deleteDiscount(id: string) {
     if (!confirm('حذف هذا الكود؟')) return
-    const { createClient } = await import('@supabase/supabase-js')
-    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!) as any
-    await sb.from('discount_codes').delete().eq('id', id)
+    await fetch(`/api/admin/discounts/${id}`, { method: 'DELETE' })
     loadData()
   }
 
   const SIDEBAR_W = 210
 
   return (
-    <div style={{ display:'flex', minHeight:'100vh', background:BG, direction:'rtl', fontFamily:"'Th','Noto Kufi Arabic',serif" }}>
+    <div className="admin-shell" style={{ display:'flex', minHeight:'100vh', background:BG, direction:'rtl', fontFamily:"'Th','Noto Kufi Arabic',serif" }}>
 
       {/* ══ SIDEBAR ══ */}
-      <aside style={{ width:SIDEBAR_W, flexShrink:0, background:W, borderLeft:`1px solid ${C.border}`, display:'flex', flexDirection:'column', position:'fixed', top:0, right:0, bottom:0, zIndex:50 }}>
+      <aside className="admin-sidebar" style={{ width:SIDEBAR_W, flexShrink:0, background:W, borderLeft:`1px solid ${C.border}`, display:'flex', flexDirection:'column', position:'fixed', top:0, right:0, bottom:0, zIndex:50 }}>
 
         <div style={{ padding:'20px 18px 16px', borderBottom:`1px solid ${C.border}` }}>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
@@ -190,9 +201,9 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <nav style={{ flex:1, padding:'10px 10px', overflowY:'auto' }}>
+        <nav className="admin-nav" style={{ flex:1, padding:'10px 10px', overflowY:'auto' }}>
           {NAV.map(item => (
-            <button key={item.id} onClick={() => setTab(item.id)} style={{
+            <button key={item.id} className="admin-nav-btn" onClick={() => setTab(item.id)} style={{
               display:'flex', alignItems:'center', gap:10, width:'100%',
               padding:'10px 12px', borderRadius:10, marginBottom:2,
               background: tab === item.id ? C.primary : 'transparent',
@@ -202,12 +213,18 @@ export default function AdminPage() {
               fontFamily:"'Th',serif", transition:'all .15s',
             }}>
               <span style={{ display:'flex' }}>
-              {item.icon === 'dashboard' && <IconLayoutDashboard size={16} />}
-              {item.icon === 'customers' && <IconUsers size={16} />}
-              {item.icon === 'store'     && <IconBuildingStore size={16} />}
-              {item.icon === 'discounts' && <IconTag size={16} />}
-              {item.icon === 'theme'     && <IconPalette size={16} />}
-              {item.icon === 'settings'  && <IconSettings size={16} />}
+              {item.icon === 'dashboard'    && <IconLayoutDashboard size={16} />}
+              {item.icon === 'customers'    && <IconUsers size={16} />}
+              {item.icon === 'store'        && <IconBuildingStore size={16} />}
+              {item.icon === 'content'      && <IconLayoutGrid size={16} />}
+              {item.icon === 'testimonials' && <IconQuote size={16} />}
+              {item.icon === 'faqs'         && <IconHelpCircle size={16} />}
+              {item.icon === 'features'     && <IconStarFilled size={16} />}
+              {item.icon === 'comparison'   && <IconColumns size={16} />}
+              {item.icon === 'pages'        && <IconFileText size={16} />}
+              {item.icon === 'discounts'    && <IconTag size={16} />}
+              {item.icon === 'theme'        && <IconPalette size={16} />}
+              {item.icon === 'settings'     && <IconSettings size={16} />}
             </span>
               {item.label}
             </button>
@@ -227,7 +244,7 @@ export default function AdminPage() {
       </aside>
 
       {/* ══ MAIN ══ */}
-      <main style={{ flex:1, marginRight:SIDEBAR_W, padding:'28px 24px 48px' }}>
+      <main className="admin-main" style={{ flex:1, marginRight:SIDEBAR_W, padding:'28px 24px 48px' }}>
 
         {/* ── DASHBOARD ── */}
         {tab === 'dashboard' && (
@@ -238,7 +255,7 @@ export default function AdminPage() {
             </div>
 
             {/* Stat cards */}
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:18 }}>
+            <div className="admin-stat-grid" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:18 }}>
               {[
                 { label:'إجمالي الإيرادات', value: loading?'...':`${stats.revenue.toFixed(3)}`, unit:'د.ك', change:'+12%', up:true },
                 { label:'إجمالي العملاء',    value: loading?'...':stats.customers.toString(),     unit:'',     change:'+5%',  up:true },
@@ -259,7 +276,7 @@ export default function AdminPage() {
             </div>
 
             {/* Chart + Update card */}
-            <div style={{ display:'grid', gridTemplateColumns:'220px 1fr', gap:14, marginBottom:18 }}>
+            <div className="admin-chart-grid" style={{ display:'grid', gridTemplateColumns:'220px 1fr', gap:14, marginBottom:18 }}>
               <div style={{ background:`linear-gradient(145deg,${C.primary},#8b6dd4)`, borderRadius:18, padding:'24px 20px', display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center', gap:8 }}>
                 <div style={{ width:48, height:48, borderRadius:'50%', background:'rgba(255,255,255,0.15)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}><IconCircleCheck size={22} color='rgba(255,255,255,0.8)' /></div>
                 <div style={{ fontSize:15, fontWeight:900, color:W }}>كل شيء يعمل</div>
@@ -292,26 +309,28 @@ export default function AdminPage() {
               ) : stats.purchases.length === 0 ? (
                 <div style={{ textAlign:'center', padding:'20px', color:C.text3, fontSize:13 }}>لا توجد طلبات بعد</div>
               ) : (
-                <>
-                  <div style={{ display:'grid', gridTemplateColumns:'1.2fr 1.4fr 0.9fr 0.7fr 0.5fr', gap:8, padding:'7px 12px', marginBottom:4 }}>
-                    {['المعرّف','العميل','التاريخ','الحالة','المبلغ'].map(h=><div key={h} style={{ fontSize:10, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:0.3 }}>{h}</div>)}
-                  </div>
-                  {stats.purchases.map((p:any,i:number)=>{
-                    const st = STATUS[p.status] ?? STATUS.pending
-                    return (
-                      <div key={i} style={{ display:'grid', gridTemplateColumns:'1.2fr 1.4fr 0.9fr 0.7fr 0.5fr', gap:8, padding:'11px 12px', borderTop:`1px solid ${C.border}`, alignItems:'center' }}>
-                        <div style={{ fontSize:11, fontWeight:700, color:C.primary }}>{p.invoice_number ?? '—'}</div>
-                        <div>
-                          <div style={{ fontSize:12, fontWeight:700, color:C.text1 }}>{p.email?.split('@')[0] ?? '—'}</div>
-                          <div style={{ fontSize:10, color:C.text3 }}>{p.email ?? ''}</div>
+                <div className="admin-table-wrap">
+                  <div className="admin-table-min">
+                    <div style={{ display:'grid', gridTemplateColumns:'1.2fr 1.4fr 0.9fr 0.7fr 0.5fr', gap:8, padding:'7px 12px', marginBottom:4 }}>
+                      {['المعرّف','العميل','التاريخ','الحالة','المبلغ'].map(h=><div key={h} style={{ fontSize:10, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:0.3 }}>{h}</div>)}
+                    </div>
+                    {stats.purchases.map((p:any,i:number)=>{
+                      const st = STATUS[p.status] ?? STATUS.pending
+                      return (
+                        <div key={i} style={{ display:'grid', gridTemplateColumns:'1.2fr 1.4fr 0.9fr 0.7fr 0.5fr', gap:8, padding:'11px 12px', borderTop:`1px solid ${C.border}`, alignItems:'center' }}>
+                          <div style={{ fontSize:11, fontWeight:700, color:C.primary }}>{p.invoice_number ?? '—'}</div>
+                          <div>
+                            <div style={{ fontSize:12, fontWeight:700, color:C.text1 }}>{p.email?.split('@')[0] ?? '—'}</div>
+                            <div style={{ fontSize:10, color:C.text3 }}>{p.email ?? ''}</div>
+                          </div>
+                          <div style={{ fontSize:10, color:C.text3 }}>{new Date(p.created_at).toLocaleDateString('ar-KW')}</div>
+                          <div><span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:999, background:st.bg, color:st.color }}>{st.label}</span></div>
+                          <div style={{ fontSize:12, fontWeight:900, color:C.text1 }}>{p.amount} د.ك</div>
                         </div>
-                        <div style={{ fontSize:10, color:C.text3 }}>{new Date(p.created_at).toLocaleDateString('ar-KW')}</div>
-                        <div><span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:999, background:st.bg, color:st.color }}>{st.label}</span></div>
-                        <div style={{ fontSize:12, fontWeight:900, color:C.text1 }}>{p.amount} د.ك</div>
-                      </div>
-                    )
-                  })}
-                </>
+                      )
+                    })}
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -325,25 +344,27 @@ export default function AdminPage() {
               {loading ? <div style={{ textAlign:'center', padding:24, color:C.text3 }}>جاري التحميل...</div>
               : customers.length === 0 ? <div style={{ textAlign:'center', padding:24, color:C.text3 }}>لا يوجد عملاء بعد</div>
               : (
-                <>
-                  <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 0.8fr', gap:8, padding:'7px 12px', marginBottom:4 }}>
-                    {['العميل','طريقة الدفع','تاريخ الشراء','المبلغ'].map(h=><div key={h} style={{ fontSize:10, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:0.3 }}>{h}</div>)}
-                  </div>
-                  {customers.map((c:any,i:number) => (
-                    <div key={i} style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 0.8fr', gap:8, padding:'12px 12px', borderTop:`1px solid ${C.border}`, alignItems:'center' }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                        <div style={{ width:32, height:32, borderRadius:'50%', background:C.primaryLight, color:C.primaryText, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:900, flexShrink:0 }}>{(c.email??'?')[0].toUpperCase()}</div>
-                        <div>
-                          <div style={{ fontSize:13, fontWeight:700, color:C.text1 }}>{c.email?.split('@')[0]}</div>
-                          <div style={{ fontSize:11, color:C.text3 }}>{c.email}</div>
-                        </div>
-                      </div>
-                      <div style={{ fontSize:12, color:C.text2 }}>{c.payment_method ?? 'بطاقة'}</div>
-                      <div style={{ fontSize:11, color:C.text3 }}>{new Date(c.created_at).toLocaleDateString('ar-KW')}</div>
-                      <div style={{ fontSize:13, fontWeight:900, color:C.primary }}>{c.amount} د.ك</div>
+                <div className="admin-table-wrap">
+                  <div className="admin-table-min">
+                    <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 0.8fr', gap:8, padding:'7px 12px', marginBottom:4 }}>
+                      {['العميل','طريقة الدفع','تاريخ الشراء','المبلغ'].map(h=><div key={h} style={{ fontSize:10, fontWeight:700, color:C.text3, textTransform:'uppercase', letterSpacing:0.3 }}>{h}</div>)}
                     </div>
-                  ))}
-                </>
+                    {customers.map((c:any,i:number) => (
+                      <div key={i} style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 0.8fr', gap:8, padding:'12px 12px', borderTop:`1px solid ${C.border}`, alignItems:'center' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                          <div style={{ width:32, height:32, borderRadius:'50%', background:C.primaryLight, color:C.primaryText, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:900, flexShrink:0 }}>{(c.email??'?')[0].toUpperCase()}</div>
+                          <div>
+                            <div style={{ fontSize:13, fontWeight:700, color:C.text1 }}>{c.email?.split('@')[0]}</div>
+                            <div style={{ fontSize:11, color:C.text3 }}>{c.email}</div>
+                          </div>
+                        </div>
+                        <div style={{ fontSize:12, color:C.text2 }}>{c.payment_method ?? 'بطاقة'}</div>
+                        <div style={{ fontSize:11, color:C.text3 }}>{new Date(c.created_at).toLocaleDateString('ar-KW')}</div>
+                        <div style={{ fontSize:13, fontWeight:900, color:C.primary }}>{c.amount} د.ك</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -353,7 +374,7 @@ export default function AdminPage() {
         {tab === 'store' && (
           <div>
             <div style={{ marginBottom:24 }}><h1 style={{ fontSize:20, fontWeight:900, color:C.text1, marginBottom:4 }}>إعدادات المتجر</h1><p style={{ fontSize:13, color:C.text3 }}>عدّل معلومات المتجر والمنتج</p></div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+            <div className="admin-2col" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
 
               {/* Store info */}
               <div style={{ background:W, border:`1px solid ${C.border}`, borderRadius:18, padding:'22px 24px' }}>
@@ -388,6 +409,16 @@ export default function AdminPage() {
                       onChange={e => setStore(s => ({ ...s, [f.key]: f.type==='number'?parseFloat(e.target.value):e.target.value }))} style={inp} />
                   </div>
                 ))}
+                <div style={{ marginBottom:12 }}>
+                  <label style={{ display:'block', fontSize:10, fontWeight:700, color:C.text2, textTransform:'uppercase', letterSpacing:0.4, marginBottom:5 }}>وصف المنتج</label>
+                  <textarea rows={3} value={store.product_description} onFocus={focus as any} onBlur={blur as any}
+                    onChange={e => setStore(s => ({ ...s, product_description: e.target.value }))} style={{ ...inp, height:'auto', padding:'10px 12px', resize:'vertical' }} />
+                </div>
+                <div>
+                  <label style={{ display:'block', fontSize:10, fontWeight:700, color:C.text2, textTransform:'uppercase', letterSpacing:0.4, marginBottom:5 }}>رابط صورة المنتج (اختياري)</label>
+                  <input type="text" dir="ltr" value={store.product_image_url ?? ''} onFocus={focus} onBlur={blur}
+                    onChange={e => setStore(s => ({ ...s, product_image_url: e.target.value || null }))} style={inp} placeholder="https://..." />
+                </div>
 
                 {/* Preview */}
                 <div style={{ marginTop:20, background:C.surface, borderRadius:12, padding:'14px 16px', border:`1px solid ${C.border}` }}>
@@ -405,11 +436,100 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* ── CONTENT ── */}
+        {tab === 'content' && <ContentTab />}
+
+        {/* ── TESTIMONIALS ── */}
+        {tab === 'testimonials' && (
+          <CrudSection
+            resource="testimonials"
+            title="الشهادات"
+            description="أضيفي وعدّلي شهادات العملاء — تظهر في الصفحة الرئيسية عند التفعيل من تبويب المحتوى"
+            emptyItem={{ name:'', location:'', image_url:'', rating:5, review_text:'', is_active:true }}
+            fields={[
+              { key:'name', label:'اسم العميلة' },
+              { key:'location', label:'الموقع' },
+              { key:'image_url', label:'رابط الصورة (اختياري)' },
+              { key:'rating', label:'التقييم (1-5)', type:'number' },
+              { key:'review_text', label:'نص التقييم', type:'textarea' },
+              { key:'is_active', label:'مفعّل', type:'checkbox' },
+            ]}
+            renderLabel={(t) => t.name}
+            renderMeta={(t) => `${t.rating}★ — ${t.review_text}`}
+          />
+        )}
+
+        {/* ── FAQ ── */}
+        {tab === 'faqs' && (
+          <CrudSection
+            resource="faqs"
+            title="الأسئلة الشائعة"
+            description="أضيفي وعدّلي ورتّبي الأسئلة الشائعة — تظهر في الصفحة الرئيسية وصفحة /faq"
+            reorderable
+            emptyItem={{ question:'', answer:'', is_active:true }}
+            fields={[
+              { key:'question', label:'السؤال' },
+              { key:'answer', label:'الإجابة', type:'textarea' },
+              { key:'is_active', label:'مفعّل', type:'checkbox' },
+            ]}
+            renderLabel={(f) => f.question}
+            renderMeta={(f) => f.answer}
+          />
+        )}
+
+        {/* ── FEATURES ── */}
+        {tab === 'features' && (
+          <CrudSection
+            resource="features"
+            title="المميزات"
+            description="أضيفي وعدّلي شبكة مميزات المنتج في الصفحة الرئيسية"
+            emptyItem={{ icon:'IconCircleCheck', title:'', description:'', is_active:true }}
+            fields={[
+              { key:'title', label:'العنوان' },
+              { key:'description', label:'الوصف', type:'textarea' },
+              { key:'icon', label:'الأيقونة', type:'select', options:[
+                { value:'IconStarFilled', label:'نجمة' },
+                { value:'IconCheck', label:'علامة صح' },
+                { value:'IconCalendar', label:'تقويم' },
+                { value:'IconPhoto', label:'صورة' },
+                { value:'IconBook2', label:'كتاب' },
+                { value:'IconShieldCheck', label:'درع' },
+                { value:'IconBolt', label:'برق' },
+                { value:'IconCircleCheck', label:'دائرة صح' },
+              ]},
+              { key:'is_active', label:'مفعّل', type:'checkbox' },
+            ]}
+            renderLabel={(f) => f.title}
+            renderMeta={(f) => f.description}
+          />
+        )}
+
+        {/* ── COMPARISON ── */}
+        {tab === 'comparison' && (
+          <CrudSection
+            resource="comparison_rows"
+            title="جدول المقارنة"
+            description="أضيفي وعدّلي صفوف جدول المقارنة بين رَوْنَق والبدائل"
+            emptyItem={{ label:'', rwnk_has:true, others_has:false, is_active:true }}
+            fields={[
+              { key:'label', label:'الميزة' },
+              { key:'rwnk_has', label:'متوفر في رَوْنَق', type:'checkbox' },
+              { key:'others_has', label:'متوفر في البدائل', type:'checkbox' },
+              { key:'is_active', label:'مفعّل', type:'checkbox' },
+            ]}
+            renderLabel={(r) => r.label}
+            renderMeta={(r) => `رَوْنَق: ${r.rwnk_has?'✓':'✗'} — البدائل: ${r.others_has?'✓':'✗'}`}
+          />
+        )}
+
+        {/* ── PAGES ── */}
+        {tab === 'pages' && <PagesTab />}
+
         {/* ── DISCOUNT CODES ── */}
         {tab === 'discounts' && (
           <div>
             <div style={{ marginBottom:24 }}><h1 style={{ fontSize:20, fontWeight:900, color:C.text1, marginBottom:4 }}>أكواد الخصم</h1><p style={{ fontSize:13, color:C.text3 }}>أنشئ وأدر أكواد الخصم</p></div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1.5fr', gap:16 }}>
+            <div className="admin-discounts-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1.5fr', gap:16 }}>
 
               {/* New code form */}
               <div style={{ background:W, border:`1px solid ${C.border}`, borderRadius:18, padding:'22px 24px' }}>
@@ -450,9 +570,9 @@ export default function AdminPage() {
                 {discounts.length === 0 ? (
                   <div style={{ textAlign:'center', padding:'32px', color:C.text3, fontSize:13 }}>لا توجد أكواد بعد</div>
                 ) : discounts.map((d) => (
-                  <div key={d.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:`1px solid ${C.border}` }}>
-                    <div style={{ flex:1 }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3 }}>
+                  <div key={d.id} style={{ display:'flex', alignItems:'center', flexWrap:'wrap', gap:12, padding:'12px 0', borderBottom:`1px solid ${C.border}` }}>
+                    <div style={{ flex:'1 1 160px', minWidth:0 }}>
+                      <div style={{ display:'flex', alignItems:'center', flexWrap:'wrap', gap:8, marginBottom:3 }}>
                         <span style={{ fontSize:13, fontWeight:900, color:C.text1, fontFamily:'monospace' }}>{d.code}</span>
                         <span style={{ fontSize:10, fontWeight:700, padding:'2px 7px', borderRadius:999, background:d.is_active?C.secondaryBg:C.surface, color:d.is_active?'#085041':C.text3 }}>
                           {d.is_active ? 'فعّال' : 'متوقف'}
@@ -464,7 +584,7 @@ export default function AdminPage() {
                         {d.expires_at ? ` · ينتهي ${new Date(d.expires_at).toLocaleDateString('ar-KW')}` : ''}
                       </div>
                     </div>
-                    <div style={{ display:'flex', gap:5 }}>
+                    <div style={{ display:'flex', gap:5, flexShrink:0 }}>
                       <button onClick={() => toggleDiscount(d.id, d.is_active)} style={{ height:30, padding:'0 10px', background:d.is_active?C.surface:C.primaryLight, color:d.is_active?C.text3:C.primary, border:`1px solid ${C.border}`, borderRadius:7, fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:"'Th',serif" }}>
                         {d.is_active ? 'إيقاف' : 'تفعيل'}
                       </button>
@@ -481,7 +601,7 @@ export default function AdminPage() {
         {tab === 'theme' && (
           <div>
             <div style={{ marginBottom:24 }}><h1 style={{ fontSize:20, fontWeight:900, color:C.text1, marginBottom:4 }}>الثيم والألوان</h1><p style={{ fontSize:13, color:C.text3 }}>خصّص هوية الموقع البصرية</p></div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+            <div className="admin-2col" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
 
               {/* Color picker */}
               <div style={{ background:W, border:`1px solid ${C.border}`, borderRadius:18, padding:'22px 24px' }}>
@@ -500,7 +620,7 @@ export default function AdminPage() {
                 <div style={{ marginBottom:16 }}>
                   <label style={{ display:'block', fontSize:10, fontWeight:700, color:C.text2, textTransform:'uppercase', letterSpacing:0.4, marginBottom:8 }}>لون مخصص</label>
                   <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                    <input type="color" value={primaryColor} onChange={e=>setPrimary(e.target.value)} style={{ width:48, height:44, borderRadius:10, border:`1px solid ${C.border}`, padding:4, cursor:'pointer' }} />
+                    <input type="color" aria-label="لون مخصص" value={primaryColor} onChange={e=>setPrimary(e.target.value)} style={{ width:48, height:44, borderRadius:10, border:`1px solid ${C.border}`, padding:4, cursor:'pointer' }} />
                     <input type="text" value={primaryColor} onChange={e=>setPrimary(e.target.value)} style={{ ...inp, flex:1, fontFamily:'monospace' }} />
                   </div>
                 </div>
@@ -570,9 +690,6 @@ export default function AdminPage() {
             </div>
           </div>
         )}
-
-        {/* FAB */}
-        <button style={{ position:'fixed', bottom:28, left:28, width:46, height:46, borderRadius:'50%', background:C.primary, color:W, border:'none', fontSize:20, cursor:'pointer', boxShadow:'0 4px 16px rgba(103,71,178,.4)', display:'flex', alignItems:'center', justifyContent:'center' }}>+</button>
 
       </main>
     </div>

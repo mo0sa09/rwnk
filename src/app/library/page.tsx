@@ -9,7 +9,6 @@ import { generateDownloadTokenSafe } from '@/lib/purchases'
 const P='#6747B2',PL='#EDE8FF',T1='#1A1228',T2='#4A4060',T3='#9890AA',BR='#EDE8F5'
 const CHAPTERS=[{n:1,title:'أسس التنظيف الاحترافي',status:'done'},{n:2,title:'معايير كل غرفة',status:'done'},{n:3,title:'المنتجات والأدوات',status:'done'},{n:4,title:'الجداول والقوائم',status:'done'},{n:5,title:'التعامل مع الحالات الخاصة',status:'new'}]
 export default function LibraryPage() {
-  const [user,setUser]=useState<any>(null)
   const [library,setLibrary]=useState<any[]>([])
   const [loading,setLoading]=useState(true)
   const [dlState,setDlState]=useState<Record<string,string>>({})
@@ -17,7 +16,6 @@ export default function LibraryPage() {
     async function load(){
       const {data:{user}}=await supabase.auth.getUser()
       if(!user){window.location.href='/login';return}
-      setUser(user)
       try{
         const {data:lib}=await (supabase as any).from('user_library').select('*').order('created_at',{ascending:false})
         setLibrary(lib??[])
@@ -32,7 +30,7 @@ export default function LibraryPage() {
   async function handleDownload(item:any){
     setDlState(s=>({...s,[item.id]:'loading'}))
     try{
-      const token=await generateDownloadTokenSafe(item.id,user?.id)
+      const token=await generateDownloadTokenSafe(item.id)
       window.open(`/api/download?token=${token}`,'_blank')
       setLibrary(lib=>lib.map(p=>p.id===item.id?{...p,downloads_used:(p.downloads_used??0)+1,downloads_remaining:(p.downloads_remaining??5)-1}:p))
       setDlState(s=>({...s,[item.id]:'idle'}))
@@ -79,11 +77,11 @@ export default function LibraryPage() {
                     </div>
                   ))}
                 </div>
-                <div style={{background:'#fff',border:`1px solid ${BR}`,borderRadius:20,padding:'24px 28px',marginBottom:14,display:'flex',alignItems:'center',gap:22}}>
+                <div className="library-item-row" style={{background:'#fff',border:`1px solid ${BR}`,borderRadius:20,padding:'clamp(18px,4vw,24px) clamp(18px,5vw,28px)',marginBottom:14,display:'flex',alignItems:'center',gap:22,flexWrap:'wrap'}}>
                   <div style={{width:80,height:104,borderRadius:12,flexShrink:0,background:'linear-gradient(145deg,#6747B2,#8b6dd4)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:6,boxShadow:'0 8px 24px rgba(103,71,178,.3)'}}>
                     <span style={{fontSize:10,fontWeight:900,color:'#fff'}}>رَوْنَق</span>
                   </div>
-                  <div style={{flex:1}}>
+                  <div style={{flex:'1 1 200px',minWidth:0}}>
                     <div style={{fontSize:17,fontWeight:900,letterSpacing:-0.4,marginBottom:4,color:T1}}>{item.product_name??'كتاب رَوْنَق — دليل التنظيف الاحترافي'}</div>
                     <div style={{fontSize:12,color:T3,marginBottom:10}}>الإصدار {item.product_version??'1.0'} · PDF</div>
                     <div style={{marginBottom:8}}>
@@ -101,11 +99,11 @@ export default function LibraryPage() {
                       ))}
                     </div>
                   </div>
-                  <div style={{display:'flex',flexDirection:'column',gap:8,minWidth:140}}>
-                    <button onClick={()=>handleDownload(item)} disabled={st==='loading'||dlLeft<=0} style={{height:42,background:dlLeft<=0?'#C8C0D8':st==='loading'?'#8b6dd4':P,color:'#fff',border:'none',borderRadius:10,fontSize:13,fontWeight:900,cursor:dlLeft<=0||st==='loading'?'not-allowed':'pointer',fontFamily:"'Th',serif",transition:'all .2s'}}>
+                  <div className="library-item-actions" style={{display:'flex',flexDirection:'column',gap:8,minWidth:140}}>
+                    <button onClick={()=>handleDownload(item)} disabled={st==='loading'||dlLeft<=0} style={{height:44,background:dlLeft<=0?'#C8C0D8':st==='loading'?'#8b6dd4':P,color:'#fff',border:'none',borderRadius:10,fontSize:13,fontWeight:900,cursor:dlLeft<=0||st==='loading'?'not-allowed':'pointer',fontFamily:"'Th',serif",transition:'all .2s'}}>
                       {st==='loading'?'...':dlLeft<=0?'نفذت':'⬇ تحميل'}
                     </button>
-                    <Link href="/account" style={{height:38,background:'#fff',border:`1px solid ${BR}`,borderRadius:10,fontSize:12,fontWeight:700,color:T2,display:'flex',alignItems:'center',justifyContent:'center',textDecoration:'none'}}>حسابي</Link>
+                    <Link href="/account" style={{height:44,background:'#fff',border:`1px solid ${BR}`,borderRadius:10,fontSize:12,fontWeight:700,color:T2,display:'flex',alignItems:'center',justifyContent:'center',textDecoration:'none'}}>حسابي</Link>
                   </div>
                 </div>
                 <div style={{background:'#fff',border:`1px solid ${BR}`,borderRadius:20,padding:24,marginBottom:20}}>

@@ -17,6 +17,7 @@
 /* ── Reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
+html, body { max-width: 100%; overflow-x: hidden; }
 body {
   font-family: 'Th', 'Noto Kufi Arabic', serif !important;
   -webkit-font-smoothing: antialiased;
@@ -29,7 +30,12 @@ a { text-decoration: none; color: inherit; }
 button, input, select, textarea {
   font-family: 'Th', 'Noto Kufi Arabic', serif !important;
 }
-img { max-width: 100%; }
+img, svg { max-width: 100%; }
+table { max-width: 100%; }
+
+/* Any element explicitly opted into a horizontal-scroll table/strip is
+   exempt from the page-level overflow guard above. */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 /* ── Animations ── */
 @keyframes fadeUp {
@@ -60,3 +66,122 @@ img { max-width: 100%; }
 
 /* ── Focus outline ── */
 *:focus-visible { outline: 2px solid var(--p); outline-offset: 2px; }
+
+/* ═══════════════════════════════════════════════
+   Responsive utilities
+   Pages are built with inline styles by convention;
+   these classes hook the handful of multi-column
+   layouts that need to collapse on small screens.
+   ═══════════════════════════════════════════════ */
+
+/* Generic column grids — collapse to 1 column on mobile,
+   grid-3/grid-4 get an intermediate 2-column tablet step. */
+@media (max-width: 640px) {
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr !important; }
+}
+@media (min-width: 641px) and (max-width: 900px) {
+  .grid-3, .grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
+}
+@media (max-width: 640px) {
+  .hero-grid { min-height: auto !important; padding-top: 96px !important; }
+}
+
+/* ── Navbar — hamburger menu below tablet width ── */
+@media (max-width: 780px) {
+  .navbar-links { display: none !important; }
+  .navbar-root { padding: 0 16px !important; }
+  .navbar-desktop-actions { display: none !important; }
+  .navbar-burger { display: flex !important; }
+}
+.navbar-mobile-panel {
+  position: fixed; top: 60px; left: 0; right: 0; bottom: 0; z-index: 99;
+  background: #fff; overflow-y: auto;
+  animation: fadeUp .18s ease;
+}
+
+/* Auth pages (login/register) — full-viewport split screen.
+   The form panel can scroll independently at any width so a tall form
+   (register) is never clipped by the 100vh/overflow:hidden shell. */
+.auth-form-panel { max-height: 100vh; overflow-y: auto; }
+@media (max-width: 860px) {
+  .auth-shell {
+    grid-template-columns: 1fr !important;
+    height: auto !important;
+    min-height: 100vh;
+    overflow: visible !important;
+  }
+  .auth-shell > .auth-brand-panel { display: none !important; }
+  .auth-form-panel { padding: 32px 24px !important; max-height: none; }
+}
+
+/* Checkout — same full-viewport split-screen problem. */
+@media (max-width: 860px) {
+  .checkout-shell {
+    grid-template-columns: 1fr !important;
+    height: auto !important;
+    min-height: 100vh;
+  }
+  .checkout-col-summary { border-right: none !important; border-top: 1px solid var(--br); }
+}
+@media (max-width: 380px) {
+  .checkout-pm-grid { grid-template-columns: 1fr !important; }
+}
+
+/* Library — book row: cover + text + action column. Below phone width the
+   fixed-min-width action column and 80px cover no longer fit one row. */
+@media (max-width: 560px) {
+  .library-item-row { flex-direction: column !important; align-items: stretch !important; }
+  .library-item-actions { flex-direction: row !important; width: 100% !important; min-width: 0 !important; }
+  .library-item-actions button, .library-item-actions a { flex: 1; }
+}
+
+/* ── Admin dashboard ──────────────────────────────────────────
+   Below desktop width the fixed 210px rail becomes a top bar with
+   a horizontally-scrollable icon strip instead of a tall stacked list —
+   this is the tablet-appropriate step (912/820/768), not a phone-only fix. */
+@media (max-width: 1024px) {
+  .admin-shell { flex-direction: column !important; }
+  .admin-sidebar {
+    position: static !important; width: 100% !important; height: auto !important;
+    border-left: none !important; border-bottom: 1px solid var(--br);
+  }
+  .admin-main { margin-right: 0 !important; padding: 20px 16px 40px !important; }
+  .admin-nav {
+    display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    padding: 8px !important; gap: 4px !important;
+  }
+  .admin-nav-btn {
+    width: auto !important; white-space: nowrap; flex-shrink: 0;
+    margin-bottom: 0 !important;
+  }
+}
+/* Form/content grids stay 2-up through tablet widths (the sidebar has
+   already freed up the horizontal space by 1024px) and only collapse to
+   1 column once there genuinely isn't room. */
+@media (max-width: 680px) {
+  .admin-2col, .admin-discounts-grid { grid-template-columns: 1fr !important; }
+}
+@media (max-width: 640px) {
+  .admin-stat-grid { grid-template-columns: 1fr !important; }
+  .admin-chart-grid { grid-template-columns: 1fr !important; }
+}
+@media (min-width: 641px) and (max-width: 900px) {
+  .admin-chart-grid { grid-template-columns: 1fr !important; }
+}
+
+/* Admin "fake table" grids (dashboard orders, customers) — scrollable on
+   narrow screens instead of squeezing every column unreadably thin. */
+.admin-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+@media (max-width: 700px) {
+  .admin-table-min { min-width: 560px; }
+}
+
+/* Comfortable ≥44px touch targets on touch devices, without bloating the
+   dense desktop admin UI for mouse users. */
+@media (max-width: 900px), (pointer: coarse) {
+  .admin-sidebar button, .admin-main button, .navbar-burger, .navbar-mobile-panel a, .navbar-mobile-panel button {
+    min-height: 44px;
+  }
+  .admin-icon-btn { width: 44px !important; height: 44px !important; }
+}

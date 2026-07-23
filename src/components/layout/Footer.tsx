@@ -1,39 +1,47 @@
+'use client'
 import Link from 'next/link'
 import Image from 'next/image'
 import { C } from '@/lib/theme'
-import { DEFAULT_SETTINGS as S } from '@/lib/store-settings'
+import { DEFAULT_SETTINGS, type StoreSettings } from '@/lib/store-settings'
 import {
   IconBrandInstagram, IconBrandTwitter, IconBrandWhatsapp,
   IconShieldCheck, IconBolt, IconStarFilled,
 } from '@tabler/icons-react'
 
-const LINKS = {
-  'المنتج': [
-    { label: 'المميزات',         href: '/#features'  },
-    { label: 'المحتوى',          href: '/#content'   },
-    { label: 'التسعير',          href: '/#pricing'   },
-    { label: 'الضمان',           href: '/#guarantee' },
-    { label: 'الأسئلة الشائعة', href: '/#faq'       },
-  ],
-  'حسابي': [
-    { label: 'شراء الكتاب',      href: '/checkout'  },
-    { label: 'دخول العملاء',     href: '/login'     },
-    { label: 'إنشاء حساب',       href: '/register'  },
-    { label: 'مكتبتي',           href: '/library'   },
-  ],
-  'الدعم': [
-    { label: 'تواصل معنا',       href: `mailto:${S.email}` },
-    { label: 'واتساب',           href: `https://wa.me/${S.whatsapp.replace(/\D/g,'')}` },
-    { label: 'سياسة الخصوصية',  href: '/privacy' },
-    { label: 'شروط الاستخدام',  href: '/terms'   },
-  ],
+function buildLinks(S: StoreSettings) {
+  return {
+    'المنتج': [
+      { label: 'المميزات',         href: '/#features'  },
+      { label: 'المحتوى',          href: '/#content'   },
+      { label: 'التسعير',          href: '/#pricing'   },
+      { label: 'الضمان',           href: '/#guarantee' },
+      { label: 'الأسئلة الشائعة', href: '/#faq'       },
+    ],
+    'حسابي': [
+      { label: 'شراء الكتاب',      href: '/checkout'  },
+      { label: 'دخول العملاء',     href: '/login'     },
+      { label: 'إنشاء حساب',       href: '/register'  },
+      { label: 'مكتبتي',           href: '/library'   },
+    ],
+    'الدعم': [
+      { label: 'تواصل معنا',       href: `mailto:${S.email}` },
+      { label: 'واتساب',           href: `https://wa.me/${S.whatsapp.replace(/\D/g,'')}` },
+      { label: 'من نحن',           href: '/about'   },
+      { label: 'الأسئلة الشائعة', href: '/faq'     },
+      { label: 'سياسة الخصوصية',  href: '/privacy' },
+      { label: 'شروط الاستخدام',  href: '/terms'   },
+      { label: 'سياسة الاسترجاع', href: '/refund'  },
+    ],
+  }
 }
 
-const SOCIAL = [
-  { icon: IconBrandInstagram, href: `https://instagram.com/${S.instagram.replace('@','')}`, label: 'انستغرام' },
-  { icon: IconBrandTwitter,   href: `https://twitter.com/${S.twitter.replace('@','')}`,    label: 'تويتر'    },
-  { icon: IconBrandWhatsapp,  href: `https://wa.me/${S.whatsapp.replace(/\D/g,'')}`,      label: 'واتساب'   },
-]
+function buildSocial(S: StoreSettings) {
+  return [
+    { icon: IconBrandInstagram, href: `https://instagram.com/${S.instagram.replace('@','')}`, label: 'انستغرام' },
+    { icon: IconBrandTwitter,   href: `https://twitter.com/${S.twitter.replace('@','')}`,    label: 'تويتر'    },
+    { icon: IconBrandWhatsapp,  href: `https://wa.me/${S.whatsapp.replace(/\D/g,'')}`,      label: 'واتساب'   },
+  ]
+}
 
 const TRUST = [
   { icon: IconStarFilled,   text: '4.9 متوسط التقييم'      },
@@ -41,16 +49,20 @@ const TRUST = [
   { icon: IconBolt,         text: 'تحميل فوري بعد الدفع'   },
 ]
 
-export default function Footer() {
+export default function Footer({ settings }: { settings?: StoreSettings }) {
+  const S = settings ?? DEFAULT_SETTINGS
+  const LINKS = buildLinks(S)
+  const SOCIAL = buildSocial(S)
+
   return (
     <footer style={{ background: C.text1, color: '#fff', fontFamily: "'Th','Noto Kufi Arabic',serif", direction: 'rtl' }}>
 
       {/* CTA Banner */}
-      <div style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '52px 40px' }}>
+      <div style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', padding: 'clamp(32px,7vw,52px) clamp(20px,6vw,40px)' }}>
         <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 24 }}>
           <div>
-            <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.8, marginBottom: 6 }}>ابدئي منزلك من هنا</div>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.65 }}>دليل تنظيف احترافي بمعايير 5 نجوم — تحميل فوري</p>
+            <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.8, marginBottom: 6 }}>{S.footer_cta_title}</div>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.65 }}>{S.footer_cta_subtitle}</p>
           </div>
           <Link href="/checkout" style={{
             background: C.primary, color: '#fff', fontSize: 14, fontWeight: 900,
@@ -63,8 +75,8 @@ export default function Footer() {
       </div>
 
       {/* Links grid */}
-      <div style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '48px 40px' }}>
-        <div style={{ maxWidth: 900, margin: '0 auto', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 40 }}>
+      <div style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', padding: 'clamp(32px,7vw,48px) clamp(20px,6vw,40px)' }}>
+        <div className="grid-4" style={{ maxWidth: 900, margin: '0 auto', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 40 }}>
 
           {/* Brand */}
           <div>
@@ -79,7 +91,7 @@ export default function Footer() {
             {/* Social icons */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
               {SOCIAL.map(({ icon: Icon, href, label }) => (
-                <Link key={label} href={href} title={label} style={{
+                <Link key={label} href={href} title={label} aria-label={label} style={{
                   width: 34, height: 34, borderRadius: 8,
                   background: 'rgba(255,255,255,0.06)',
                   border: '1px solid rgba(255,255,255,0.1)',
@@ -129,7 +141,7 @@ export default function Footer() {
       </div>
 
       {/* Bottom bar */}
-      <div style={{ padding: '18px 40px' }}>
+      <div style={{ padding: '18px clamp(20px,6vw,40px)' }}>
         <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
           <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.18)' }}>
             © {new Date().getFullYear()} {S.store_name} — جميع الحقوق محفوظة

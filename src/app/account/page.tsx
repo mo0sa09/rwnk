@@ -50,14 +50,14 @@ export default function AccountPage() {
         <div style={{maxWidth:720,margin:'0 auto',padding:'0 24px'}}>
           <h1 style={{fontSize:26,fontWeight:900,letterSpacing:-0.7,marginBottom:4,color:T1}}>حسابي</h1>
           <p style={{fontSize:13,color:T3,marginBottom:28}}>إدارة معلوماتك وطلباتك</p>
-          <div style={{background:'#fff',border:`1px solid ${BR}`,borderRadius:20,padding:'22px 24px',display:'flex',alignItems:'center',gap:18,marginBottom:14}}>
+          <div style={{background:'#fff',border:`1px solid ${BR}`,borderRadius:20,padding:'22px 24px',display:'flex',flexWrap:'wrap',alignItems:'center',gap:18,marginBottom:14}}>
             <div style={{width:62,height:62,borderRadius:'50%',flexShrink:0,background:'linear-gradient(135deg,#6747B2,#8b6dd4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,fontWeight:900,color:'#fff',boxShadow:'0 4px 16px rgba(103,71,178,.3)'}}>{name.charAt(0)}</div>
-            <div style={{flex:1}}>
-              <div style={{fontSize:17,fontWeight:900,color:T1,marginBottom:2}}>{name}</div>
-              <div style={{fontSize:13,color:T3,marginBottom:8}}>{user?.email}</div>
+            <div style={{flex:'1 1 160px',minWidth:0}}>
+              <div style={{fontSize:17,fontWeight:900,color:T1,marginBottom:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{name}</div>
+              <div style={{fontSize:13,color:T3,marginBottom:8,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{user?.email}</div>
               <span style={{fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:999,background:PL,color:P,border:'.5px solid #DDD6F0'}}>{user?.email_confirmed_at?'حساب موثّق':'⏳ في انتظار التوثيق'}</span>
             </div>
-            <button onClick={()=>setEditMode(!editMode)} style={{height:36,padding:'0 16px',background:editMode?PL:'#fff',border:`1px solid ${editMode?P:BR}`,borderRadius:9,fontSize:12,fontWeight:700,color:editMode?P:T2,cursor:'pointer',fontFamily:"'Th',serif"}}>{editMode?'إلغاء':'تعديل'}</button>
+            <button onClick={()=>setEditMode(!editMode)} style={{height:44,padding:'0 16px',background:editMode?PL:'#fff',border:`1px solid ${editMode?P:BR}`,borderRadius:9,fontSize:12,fontWeight:700,color:editMode?P:T2,cursor:'pointer',fontFamily:"'Th',serif",flexShrink:0}}>{editMode?'إلغاء':'تعديل'}</button>
           </div>
           <div style={{background:'#fff',border:`1px solid ${BR}`,borderRadius:20,padding:'20px 24px',marginBottom:14}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
@@ -71,9 +71,9 @@ export default function AccountPage() {
               {label:'الاسم الكامل',value:profile?.full_name||'—'},{label:'البريد الإلكتروني',value:user?.email,ltr:true},
               {label:'رقم الجوال',value:profile?.phone||'—',ltr:true},{label:'الدولة',value:profile?.country==='KW'?'الكويت':profile?.country||'—'},
             ].map((r,i,a)=>(
-              <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'11px 0',borderBottom:i<a.length-1?`.5px solid ${BR}`:'none'}}>
-                <span style={{fontSize:12,color:T3}}>{r.label}</span>
-                <span style={{fontSize:13,fontWeight:700,color:T1}} dir={r.ltr?'ltr':'rtl'}>{r.value}</span>
+              <div key={i} style={{display:'flex',flexWrap:'wrap',justifyContent:'space-between',alignItems:'center',gap:'4px 12px',padding:'11px 0',borderBottom:i<a.length-1?`.5px solid ${BR}`:'none'}}>
+                <span style={{fontSize:12,color:T3,flexShrink:0}}>{r.label}</span>
+                <span style={{fontSize:13,fontWeight:700,color:T1,wordBreak:'break-all',textAlign:'left'}} dir={r.ltr?'ltr':'rtl'}>{r.value}</span>
               </div>
             ))}
           </div>

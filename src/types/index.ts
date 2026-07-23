@@ -24,3 +24,47 @@ export interface Product {
   currency: string
   file_path: string
 }
+
+export interface Testimonial {
+  id: string
+  name: string
+  location: string | null
+  image_url: string | null
+  rating: number
+  review_text: string
+  sort_order: number
+  is_active: boolean
+}
+
+export interface Faq {
+  id: string
+  question: string
+  answer: string
+  sort_order: number
+  is_active: boolean
+}
+
+export interface Feature {
+  id: string
+  icon: string
+  title: string
+  description: string
+  sort_order: number
+  is_active: boolean
+}
+
+export interface ComparisonRow {
+  id: string
+  label: string
+  rwnk_has: boolean
+  others_has: boolean
+  sort_order: number
+  is_active: boolean
+}
+
+export interface PageContent {
+  slug: 'about' | 'terms' | 'privacy' | 'refund'
+  title: string
+  meta_description: string | null
+  content: string
+}
