@@ -5,7 +5,7 @@ import { C } from '@/lib/theme'
 import { DEFAULT_SETTINGS, type StoreSettings } from '@/lib/store-settings'
 import {
   IconBrandInstagram, IconBrandTwitter, IconBrandWhatsapp,
-  IconShieldCheck, IconBolt, IconStarFilled,
+  IconShieldCheck, IconBolt,
 } from '@tabler/icons-react'
 
 function buildLinks(S: StoreSettings) {
@@ -14,17 +14,13 @@ function buildLinks(S: StoreSettings) {
       { label: 'المميزات',         href: '/#features'  },
       { label: 'المحتوى',          href: '/#content'   },
       { label: 'التسعير',          href: '/#pricing'   },
-      { label: 'الضمان',           href: '/#guarantee' },
       { label: 'الأسئلة الشائعة', href: '/#faq'       },
     ],
     'حسابي': [
       { label: 'شراء الكتاب',      href: '/checkout'  },
       { label: 'دخول العملاء',     href: '/login'     },
-      { label: 'إنشاء حساب',       href: '/register'  },
-      { label: 'مكتبتي',           href: '/library'   },
     ],
     'الدعم': [
-      { label: 'تواصل معنا',       href: `mailto:${S.email}` },
       { label: 'واتساب',           href: `https://wa.me/${S.whatsapp.replace(/\D/g,'')}` },
       { label: 'من نحن',           href: '/about'   },
       { label: 'الأسئلة الشائعة', href: '/faq'     },
@@ -44,9 +40,8 @@ function buildSocial(S: StoreSettings) {
 }
 
 const TRUST = [
-  { icon: IconStarFilled,   text: '4.9 متوسط التقييم'      },
-  { icon: IconShieldCheck,  text: 'ضمان الاسترجاع 7 أيام'  },
   { icon: IconBolt,         text: 'تحميل فوري بعد الدفع'   },
+  { icon: IconShieldCheck,  text: 'دفع آمن ومشفّر'          },
 ]
 
 export default function Footer({ settings }: { settings?: StoreSettings }) {
@@ -55,7 +50,7 @@ export default function Footer({ settings }: { settings?: StoreSettings }) {
   const SOCIAL = buildSocial(S)
 
   return (
-    <footer style={{ background: C.text1, color: '#fff', fontFamily: "'Th','Noto Kufi Arabic',serif", direction: 'rtl' }}>
+    <footer style={{ background: C.text1, color: '#fff', fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif", direction: 'rtl' }}>
 
       {/* CTA Banner */}
       <div style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', padding: 'clamp(32px,7vw,52px) clamp(20px,6vw,40px)' }}>
@@ -81,7 +76,7 @@ export default function Footer({ settings }: { settings?: StoreSettings }) {
           {/* Brand */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <Image src="/logo-icon.png" alt={S.store_name} width={26} height={26} style={{ objectFit: 'contain' }} />
+              <Image src="/logo-icon.png" alt={S.store_name} width={26} height={31} style={{ width:26, height:31, objectFit: 'contain', flexShrink: 0 }} />
               <span style={{ fontSize: 17, fontWeight: 900 }}>{S.store_name}</span>
             </div>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.38)', lineHeight: 1.75, maxWidth: 210, marginBottom: 22 }}>

@@ -47,8 +47,7 @@ const FALLBACK_COMPARISON: ComparisonRow[] = [
   { id: 'f2', label: 'مستوى الفنادق',       rwnk_has: true, others_has: false, sort_order: 2, is_active: true },
   { id: 'f3', label: 'قوائم جاهزة للطباعة', rwnk_has: true, others_has: false, sort_order: 3, is_active: true },
   { id: 'f4', label: 'تحديثات مجانية',      rwnk_has: true, others_has: false, sort_order: 4, is_active: true },
-  { id: 'f5', label: 'ضمان استرجاع 7 أيام', rwnk_has: true, others_has: false, sort_order: 5, is_active: true },
-  { id: 'f6', label: 'دفعة واحدة',          rwnk_has: true, others_has: false, sort_order: 6, is_active: true },
+  { id: 'f5', label: 'دفعة واحدة',          rwnk_has: true, others_has: false, sort_order: 5, is_active: true },
 ]
 
 const FALLBACK_PAGES: Record<string, PageContent> = {
@@ -69,8 +68,8 @@ const FALLBACK_PAGES: Record<string, PageContent> = {
   },
   refund: {
     slug: 'refund', title: 'سياسة الاسترجاع',
-    meta_description: 'تفاصيل ضمان الاسترجاع الكامل خلال 7 أيام من الشراء.',
-    content: 'نقدّم ضمان استرجاع كامل خلال 7 أيام من تاريخ الشراء.\n\nإذا لم تكوني راضية عن المنتج لأي سبب، تواصلي معنا خلال 7 أيام وسنُعيد لك المبلغ بالكامل دون أي أسئلة.\n\nلطلب الاسترجاع، يُرجى التواصل عبر البريد الإلكتروني أو واتساب مع ذكر رقم الفاتورة.\n\nتتم معالجة طلبات الاسترجاع خلال 3-5 أيام عمل وتُعاد الأموال بنفس وسيلة الدفع الأصلية.',
+    meta_description: 'سياسة الاسترجاع الخاصة بمنتجات رَوْنَق الرقمية.',
+    content: 'كتاب رَوْنَق منتج رقمي (PDF) يُسلَّم فور إتمام الدفع عبر رابط تحميل فوري.\n\nنظراً لطبيعة المنتج الرقمي القابلة للتحميل الفوري، لا يمكن استرجاع المبلغ بعد إتمام عملية الشراء والتحميل.\n\nإذا واجهتِ مشكلة تقنية في التحميل، أو تم خصم المبلغ منك أكثر من مرة عن طريق الخطأ، تواصلي معنا فوراً عبر البريد الإلكتروني أو واتساب مع ذكر رقم الفاتورة وسنساعدك في حل المشكلة.',
   },
 }
 

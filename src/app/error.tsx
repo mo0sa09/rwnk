@@ -10,7 +10,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
   return (
     <div style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: "'Th','Noto Kufi Arabic',serif", direction: 'rtl', background: '#fff', color: '#1A1228',
+      fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif", direction: 'rtl', background: '#fff', color: '#1A1228',
       textAlign: 'center', padding: '40px 24px',
     }}>
       <div style={{ maxWidth: 420 }}>
@@ -24,7 +24,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
           نعتذر عن هذا الإزعاج. يمكنك إعادة المحاولة، وإذا استمرت المشكلة تواصلي معنا.
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button onClick={() => reset()} style={{ background: '#6747B2', color: '#fff', fontSize: 14, fontWeight: 900, padding: '12px 24px', borderRadius: 12, border: 'none', cursor: 'pointer', fontFamily: "'Th',serif" }}>
+          <button onClick={() => reset()} style={{ background: '#6747B2', color: '#fff', fontSize: 14, fontWeight: 900, padding: '12px 24px', borderRadius: 12, border: 'none', cursor: 'pointer', fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif" }}>
             إعادة المحاولة
           </button>
           <Link href="/" style={{ background: '#fff', color: '#6747B2', border: '1px solid #EDE8F5', fontSize: 14, fontWeight: 700, padding: '12px 24px', borderRadius: 12, display: 'inline-block' }}>

@@ -20,7 +20,7 @@ import { PagesTab } from '@/components/admin/PagesTab'
 // ── Types ────────────────────────────────────────────────────
 interface StoreForm {
   store_name: string; store_tagline: string; product_name: string
-  product_price: number; whatsapp: string; email: string
+  product_price: number; product_original_price: number; whatsapp: string; email: string
   instagram: string; twitter: string; downloads_limit: number
   product_description: string; product_image_url: string | null
 }
@@ -39,7 +39,7 @@ const BG = '#F8F7FF'
 const inp: React.CSSProperties = {
   width: '100%', height: 44, background: '#fafafa', border: `1px solid ${C.border}`,
   borderRadius: 10, padding: '0 12px', fontSize: 13, color: C.text1, outline: 'none',
-  fontFamily: "'Th',serif", transition: 'all .2s',
+  fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif", transition: 'all .2s',
 }
 const focus = (e: React.FocusEvent<HTMLInputElement|HTMLSelectElement>) => {
   e.target.style.borderColor = C.primary; e.target.style.boxShadow = '0 0 0 3px rgba(103,71,178,.1)'
@@ -86,7 +86,7 @@ export default function AdminPage() {
   // Store form
   const [store, setStore] = useState<StoreForm>({
     store_name: 'رَوْنَق', store_tagline: 'دليل التنظيف الاحترافي',
-    product_name: 'كتاب رَوْنَق', product_price: 15,
+    product_name: 'كتاب رَوْنَق', product_price: 5, product_original_price: 7,
     whatsapp: '+96500000000', email: 'hello@rwnk.co',
     instagram: '@rwnak.official', twitter: '@rwnk', downloads_limit: 5,
     product_description: '', product_image_url: null,
@@ -189,14 +189,14 @@ export default function AdminPage() {
   const SIDEBAR_W = 210
 
   return (
-    <div className="admin-shell" style={{ display:'flex', minHeight:'100vh', background:BG, direction:'rtl', fontFamily:"'Th','Noto Kufi Arabic',serif" }}>
+    <div className="admin-shell" style={{ display:'flex', minHeight:'100vh', background:BG, direction:'rtl', fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif" }}>
 
       {/* ══ SIDEBAR ══ */}
       <aside className="admin-sidebar" style={{ width:SIDEBAR_W, flexShrink:0, background:W, borderLeft:`1px solid ${C.border}`, display:'flex', flexDirection:'column', position:'fixed', top:0, right:0, bottom:0, zIndex:50 }}>
 
         <div style={{ padding:'20px 18px 16px', borderBottom:`1px solid ${C.border}` }}>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <Image src="/logo-icon.png" alt="رَوْنَق" width={28} height={28} style={{ objectFit:'contain' }} />
+            <Image src="/logo-icon.png" alt="رَوْنَق" width={28} height={33} style={{ width: 28, height: 33, objectFit:'contain', flexShrink: 0 }} />
             <div><div style={{ fontSize:15, fontWeight:900, color:C.text1 }}>رَوْنَق</div><div style={{ fontSize:10, color:C.text3 }}>لوحة التحكم</div></div>
           </div>
         </div>
@@ -210,7 +210,7 @@ export default function AdminPage() {
               color: tab === item.id ? W : C.text2,
               fontSize:13, fontWeight: tab === item.id ? 700 : 400,
               border:'none', cursor:'pointer', textAlign:'right',
-              fontFamily:"'Th',serif", transition:'all .15s',
+              fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif", transition:'all .15s',
             }}>
               <span style={{ display:'flex' }}>
               {item.icon === 'dashboard'    && <IconLayoutDashboard size={16} />}
@@ -238,7 +238,7 @@ export default function AdminPage() {
           </div>
           <div style={{ display:'flex', gap:6 }}>
             <Link href="/" style={{ fontSize:11, color:C.text3, padding:'5px 10px', borderRadius:7, border:`1px solid ${C.border}`, textDecoration:'none' }}>الموقع</Link>
-            <button onClick={async()=>{await signOut();window.location.href='/'}} style={{ fontSize:11, color:'#E24B4A', padding:'5px 10px', borderRadius:7, border:'1px solid #FECACA', background:'none', cursor:'pointer', fontFamily:"'Th',serif" }}>خروج</button>
+            <button onClick={async()=>{await signOut();window.location.href='/'}} style={{ fontSize:11, color:'#E24B4A', padding:'5px 10px', borderRadius:7, border:'1px solid #FECACA', background:'none', cursor:'pointer', fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif" }}>خروج</button>
           </div>
         </div>
       </aside>
@@ -281,7 +281,7 @@ export default function AdminPage() {
                 <div style={{ width:48, height:48, borderRadius:'50%', background:'rgba(255,255,255,0.15)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}><IconCircleCheck size={22} color='rgba(255,255,255,0.8)' /></div>
                 <div style={{ fontSize:15, fontWeight:900, color:W }}>كل شيء يعمل</div>
                 <div style={{ fontSize:12, color:'rgba(255,255,255,0.65)', lineHeight:1.5 }}>الموقع يعمل بكفاءة كاملة</div>
-                <button onClick={() => setTab('settings')} style={{ marginTop:4, height:33, padding:'0 16px', background:W, color:C.primary, border:'none', borderRadius:8, fontSize:12, fontWeight:900, cursor:'pointer', fontFamily:"'Th',serif" }}>الإعدادات</button>
+                <button onClick={() => setTab('settings')} style={{ marginTop:4, height:33, padding:'0 16px', background:W, color:C.primary, border:'none', borderRadius:8, fontSize:12, fontWeight:900, cursor:'pointer', fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif" }}>الإعدادات</button>
               </div>
               <div style={{ background:W, border:`1px solid ${C.border}`, borderRadius:18, padding:'20px 22px' }}>
                 <div style={{ fontSize:14, fontWeight:900, color:C.text1, marginBottom:18 }}>أداء الأسبوع</div>
@@ -302,7 +302,7 @@ export default function AdminPage() {
             <div style={{ background:W, border:`1px solid ${C.border}`, borderRadius:18, padding:'20px 22px' }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
                 <div style={{ fontSize:14, fontWeight:900, color:C.text1 }}>آخر الطلبات</div>
-                <button onClick={() => setTab('customers')} style={{ fontSize:12, color:C.primary, fontWeight:700, background:'none', border:'none', cursor:'pointer', fontFamily:"'Th',serif" }}>عرض الكل ←</button>
+                <button onClick={() => setTab('customers')} style={{ fontSize:12, color:C.primary, fontWeight:700, background:'none', border:'none', cursor:'pointer', fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif" }}>عرض الكل ←</button>
               </div>
               {loading ? (
                 <div style={{ textAlign:'center', padding:'20px', color:C.text3, fontSize:13 }}>جاري التحميل...</div>
@@ -400,7 +400,8 @@ export default function AdminPage() {
                 <div style={{ fontSize:13, fontWeight:900, color:C.text1, marginBottom:16 }}>معلومات المنتج</div>
                 {[
                   { label:'اسم المنتج',  key:'product_name',  type:'text',   input:true },
-                  { label:'السعر (د.ك)', key:'product_price', type:'number', input:true },
+                  { label:'السعر الأصلي (د.ك)', key:'product_original_price', type:'number', input:true },
+                  { label:'السعر الحالي (د.ك)', key:'product_price', type:'number', input:true },
                   { label:'حد التحميلات للعميل', key:'downloads_limit', type:'number', input:true },
                 ].map(f => (
                   <div key={f.key} style={{ marginBottom:12 }}>
@@ -424,13 +425,18 @@ export default function AdminPage() {
                 <div style={{ marginTop:20, background:C.surface, borderRadius:12, padding:'14px 16px', border:`1px solid ${C.border}` }}>
                   <div style={{ fontSize:11, fontWeight:700, color:C.text3, marginBottom:8 }}>معاينة بطاقة السعر</div>
                   <div style={{ fontSize:11, color:C.text3 }}>{store.product_name}</div>
-                  <div style={{ fontSize:28, fontWeight:900, color:C.primary, marginTop:4 }}>{store.product_price} <span style={{ fontSize:14, fontWeight:400, color:C.text3 }}>د.ك</span></div>
+                  <div style={{ display:'flex', alignItems:'baseline', gap:8, marginTop:4 }}>
+                    {store.product_original_price > store.product_price && (
+                      <span style={{ fontSize:14, color:C.text3, textDecoration:'line-through' }}>{store.product_original_price} د.ك</span>
+                    )}
+                    <span style={{ fontSize:28, fontWeight:900, color:C.primary }}>{store.product_price} <span style={{ fontSize:14, fontWeight:400, color:C.text3 }}>د.ك</span></span>
+                  </div>
                 </div>
               </div>
             </div>
 
             {msg && <div style={{ margin:'14px 0', padding:'10px 16px', background: msg.startsWith('✓')?C.secondaryBg:C.errorBg, borderRadius:10, fontSize:13, fontWeight:700, color: msg.startsWith('✓')?'#085041':'#A32D2D' }}>{msg}</div>}
-            <button onClick={saveStoreSettings} disabled={saving} style={{ marginTop:14, height:46, padding:'0 28px', background:saving?'#8b6dd4':C.primary, color:W, border:'none', borderRadius:12, fontSize:14, fontWeight:900, cursor:saving?'wait':'pointer', fontFamily:"'Th',serif", boxShadow:'0 2px 12px rgba(103,71,178,.28)' }}>
+            <button onClick={saveStoreSettings} disabled={saving} style={{ marginTop:14, height:46, padding:'0 28px', background:saving?'#8b6dd4':C.primary, color:W, border:'none', borderRadius:12, fontSize:14, fontWeight:900, cursor:saving?'wait':'pointer', fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif", boxShadow:'0 2px 12px rgba(103,71,178,.28)' }}>
               {saving ? 'جاري الحفظ...' : 'حفظ الإعدادات'}
             </button>
           </div>
@@ -559,7 +565,7 @@ export default function AdminPage() {
                   <label style={{ display:'block', fontSize:10, fontWeight:700, color:C.text2, textTransform:'uppercase', letterSpacing:0.4, marginBottom:5 }}>تاريخ الانتهاء (اختياري)</label>
                   <input type="date" value={newDisc.expiresAt} onChange={e=>setNewDisc(d=>({...d,expiresAt:e.target.value}))} onFocus={focus} onBlur={blur} style={inp} />
                 </div>
-                <button onClick={addDiscount} style={{ width:'100%', height:44, background:C.primary, color:W, border:'none', borderRadius:11, fontSize:14, fontWeight:900, cursor:'pointer', fontFamily:"'Th',serif" }}>
+                <button onClick={addDiscount} style={{ width:'100%', height:44, background:C.primary, color:W, border:'none', borderRadius:11, fontSize:14, fontWeight:900, cursor:'pointer', fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif" }}>
                   إضافة الكود
                 </button>
               </div>
@@ -585,10 +591,10 @@ export default function AdminPage() {
                       </div>
                     </div>
                     <div style={{ display:'flex', gap:5, flexShrink:0 }}>
-                      <button onClick={() => toggleDiscount(d.id, d.is_active)} style={{ height:30, padding:'0 10px', background:d.is_active?C.surface:C.primaryLight, color:d.is_active?C.text3:C.primary, border:`1px solid ${C.border}`, borderRadius:7, fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:"'Th',serif" }}>
+                      <button onClick={() => toggleDiscount(d.id, d.is_active)} style={{ height:30, padding:'0 10px', background:d.is_active?C.surface:C.primaryLight, color:d.is_active?C.text3:C.primary, border:`1px solid ${C.border}`, borderRadius:7, fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif" }}>
                         {d.is_active ? 'إيقاف' : 'تفعيل'}
                       </button>
-                      <button onClick={() => deleteDiscount(d.id)} style={{ height:30, padding:'0 10px', background:'#FEF2F2', color:'#A32D2D', border:'1px solid #FECACA', borderRadius:7, fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:"'Th',serif" }}>حذف</button>
+                      <button onClick={() => deleteDiscount(d.id)} style={{ height:30, padding:'0 10px', background:'#FEF2F2', color:'#A32D2D', border:'1px solid #FECACA', borderRadius:7, fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif" }}>حذف</button>
                     </div>
                   </div>
                 ))}
@@ -632,7 +638,7 @@ export default function AdminPage() {
                   setSaving(false)
                   setMsg('✓ تم حفظ الثيم')
                   setTimeout(()=>setMsg(''),3000)
-                }} disabled={saving} style={{ width:'100%', height:44, background:primaryColor, color:W, border:'none', borderRadius:11, fontSize:14, fontWeight:900, cursor:'pointer', fontFamily:"'Th',serif" }}>
+                }} disabled={saving} style={{ width:'100%', height:44, background:primaryColor, color:W, border:'none', borderRadius:11, fontSize:14, fontWeight:900, cursor:'pointer', fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif" }}>
                   {saving ? 'جاري الحفظ...' : 'حفظ اللون'}
                 </button>
                 {msg && <div style={{ marginTop:10, fontSize:12, color:'#085041', fontWeight:700 }}>{msg}</div>}
@@ -684,7 +690,7 @@ export default function AdminPage() {
             <div style={{ background:'#FFF5F5', border:'1px solid #FECACA', borderRadius:18, padding:'18px 24px' }}>
               <div style={{ fontSize:13, fontWeight:900, color:'#991B1B', marginBottom:5 }}>منطقة الخطر</div>
               <p style={{ fontSize:12, color:'#B91C1C', marginBottom:14 }}>مسح جميع بيانات الاختبار من قاعدة البيانات.</p>
-              <button style={{ height:36, padding:'0 16px', background:'#fff', border:'1px solid #FECACA', borderRadius:9, fontSize:12, fontWeight:700, color:'#991B1B', cursor:'pointer', fontFamily:"'Th',serif" }}>
+              <button style={{ height:36, padding:'0 16px', background:'#fff', border:'1px solid #FECACA', borderRadius:9, fontSize:12, fontWeight:700, color:'#991B1B', cursor:'pointer', fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif" }}>
                 مسح بيانات الاختبار
               </button>
             </div>

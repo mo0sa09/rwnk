@@ -4,7 +4,7 @@ export default function NotFound() {
   return (
     <div style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: "'Th','Noto Kufi Arabic',serif", direction: 'rtl', background: '#fff', color: '#1A1228',
+      fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif", direction: 'rtl', background: '#fff', color: '#1A1228',
       textAlign: 'center', padding: '40px 24px',
     }}>
       <div>

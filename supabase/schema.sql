@@ -54,7 +54,7 @@ VALUES (
   'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   'كتاب رَوْنَق — دليل التنظيف الاحترافي',
   'دليل تدريبي احترافي يحوّل عاملتك المنزلية إلى خبيرة تنظيف بمعايير خمس نجوم',
-  15.000, 'books/rwnk-guide-v1.pdf', '1.0'
+  5.000, 'books/rwnk-guide-v1.pdf', '1.0'
 ) ON CONFLICT DO NOTHING;
 
 -- ─────────────────────────────────────
@@ -259,7 +259,8 @@ CREATE TABLE IF NOT EXISTS public.store_settings (
   store_name       TEXT DEFAULT 'رَوْنَق',
   store_tagline    TEXT DEFAULT 'دليل التنظيف الاحترافي',
   product_name     TEXT DEFAULT 'كتاب رَوْنَق — دليل التنظيف الاحترافي',
-  product_price    NUMERIC(10,3) DEFAULT 15.000,
+  product_price    NUMERIC(10,3) DEFAULT 5.000,
+  product_original_price NUMERIC(10,3) DEFAULT 7.000,
   product_currency TEXT DEFAULT 'KWD',
   product_id       UUID DEFAULT 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   whatsapp         TEXT DEFAULT '+96500000000',
@@ -365,7 +366,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ═══════════════════════════════════════════════════════════
 
 -- 13.1 store_settings — extra editable copy/config
+ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS product_original_price NUMERIC(10,3) DEFAULT 7.000;
 ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS product_description   TEXT DEFAULT 'دليل تدريبي احترافي يحوّل عاملتك المنزلية إلى خبيرة تنظيف — بمعايير خمس نجوم.';
+-- Launch pricing: was a flat 15 KWD, now 5 KWD (compare-at 7 KWD). Only backfills
+-- rows still at the old default — never overwrites a price an admin already changed.
+UPDATE public.store_settings SET product_price = 5.000 WHERE product_price = 15.000;
 ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS product_image_url     TEXT;
 ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS hero_badge            TEXT DEFAULT 'الإصدار الأول — متاح الآن';
 ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS hero_title            TEXT DEFAULT 'منزلك يستحق *مستوى* الفنادق الراقية';
@@ -379,10 +384,10 @@ ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS footer_cta_title     
 ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS footer_cta_subtitle   TEXT DEFAULT 'دليل تنظيف احترافي بمعايير 5 نجوم — تحميل فوري';
 ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS stats_visible         BOOLEAN DEFAULT FALSE;
 ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS stats                 JSONB DEFAULT '[
-  {"value":"+500","label":"نسخة مُباعة"},
-  {"value":"4.9","label":"متوسط التقييم"},
-  {"value":"7 أيام","label":"ضمان استرجاع"},
-  {"value":"5","label":"نجوم معيار"}
+  {"value":"٥","label":"فصول تدريبية"},
+  {"value":"PDF","label":"تحميل فوري"},
+  {"value":"KWD","label":"دفعة واحدة"},
+  {"value":"٢٤/٧","label":"وصول دائم للدليل"}
 ]'::jsonb;
 ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS testimonials_visible  BOOLEAN DEFAULT FALSE;
 
@@ -468,8 +473,7 @@ INSERT INTO public.comparison_rows (label, rwnk_has, others_has, sort_order) VAL
   ('مستوى الفنادق',            TRUE, FALSE, 2),
   ('قوائم جاهزة للطباعة',      TRUE, FALSE, 3),
   ('تحديثات مجانية',           TRUE, FALSE, 4),
-  ('ضمان استرجاع 7 أيام',      TRUE, FALSE, 5),
-  ('دفعة واحدة',               TRUE, FALSE, 6)
+  ('دفعة واحدة',               TRUE, FALSE, 5)
 ON CONFLICT DO NOTHING;
 
 -- 13.6 pages — About / Terms / Privacy / Refund
@@ -517,14 +521,12 @@ INSERT INTO public.pages (slug, title, meta_description, content) VALUES
 يمكنك طلب حذف بياناتك في أي وقت عبر التواصل معنا.'),
 
 ('refund', 'سياسة الاسترجاع',
- 'تفاصيل ضمان الاسترجاع الكامل خلال 7 أيام من الشراء.',
- 'نقدّم ضمان استرجاع كامل خلال 7 أيام من تاريخ الشراء.
+ 'سياسة الاسترجاع الخاصة بمنتجات رَوْنَق الرقمية.',
+ 'كتاب رَوْنَق منتج رقمي (PDF) يُسلَّم فور إتمام الدفع عبر رابط تحميل فوري.
 
-إذا لم تكوني راضية عن المنتج لأي سبب، تواصلي معنا خلال 7 أيام وسنُعيد لك المبلغ بالكامل دون أي أسئلة.
+نظراً لطبيعة المنتج الرقمي القابلة للتحميل الفوري، لا يمكن استرجاع المبلغ بعد إتمام عملية الشراء والتحميل.
 
-لطلب الاسترجاع، يُرجى التواصل عبر البريد الإلكتروني أو واتساب مع ذكر رقم الفاتورة.
-
-تتم معالجة طلبات الاسترجاع خلال 3-5 أيام عمل وتُعاد الأموال بنفس وسيلة الدفع الأصلية.')
+إذا واجهتِ مشكلة تقنية في التحميل، أو تم خصم المبلغ منك أكثر من مرة عن طريق الخطأ، تواصلي معنا فوراً عبر البريد الإلكتروني أو واتساب مع ذكر رقم الفاتورة وسنساعدك في حل المشكلة.')
 ON CONFLICT (slug) DO NOTHING;
 
 -- ─────────────────────────────────────

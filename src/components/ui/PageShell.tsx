@@ -7,7 +7,7 @@ export function PageShell({ children, bg }: { children: ReactNode; bg?: string }
     <div style={{
       minHeight: '100vh',
       background: bg ?? C.bg,
-      fontFamily: "'Th','Noto Kufi Arabic',serif",
+      fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif",
       color: C.text1,
       direction: 'rtl',
     }}>

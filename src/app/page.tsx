@@ -15,7 +15,7 @@ const P='#6747B2',PL='#EDE8FF',PT='#26215C',T1='#1A1228',T2='#4A4060',T3='#9890A
 
 export const metadata: Metadata = {
   title: 'رَوْنَق — دليل التنظيف الاحترافي',
-  description: 'دليل تدريبي احترافي يحوّل عاملتك المنزلية إلى خبيرة تنظيف بمعايير الفنادق الخمس نجوم. تحميل فوري، ضمان 7 أيام.',
+  description: 'دليل تدريبي احترافي يحوّل عاملتك المنزلية إلى خبيرة تنظيف بمعايير الفنادق الخمس نجوم. تحميل فوري بعد الدفع.',
   openGraph: {
     title: 'رَوْنَق — دليل التنظيف الاحترافي',
     description: 'دليل تدريبي يحوّل عاملتك إلى خبيرة تنظيف بمعايير 5 نجوم',
@@ -40,52 +40,47 @@ export default async function HomePage() {
 
   const hero = splitHighlight(settings.hero_title)
 
+  const productJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: settings.product_name,
+    description: settings.product_description,
+    offers: {
+      '@type': 'Offer',
+      price: settings.product_price,
+      priceCurrency: settings.product_currency,
+      availability: 'https://schema.org/InStock',
+      url: `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://rwnk.co'}/checkout`,
+    },
+  }
+
   return (
-    <div style={{fontFamily:"'Th','Noto Kufi Arabic',serif",direction:'rtl',background:'#fff',color:T1}}>
+    <div style={{fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif",direction:'rtl',background:'#fff',color:T1}}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }} />
       <Navbar />
 
       {/* ── HERO ── */}
-      <section className="grid-2 hero-grid" style={{maxWidth:900,margin:'0 auto',padding:'clamp(96px,20vw,120px) clamp(20px,6vw,40px) clamp(56px,10vw,80px)',display:'grid',gridTemplateColumns:'1fr 1fr',gap:56,alignItems:'center',minHeight:'90vh'}}>
-        <div style={{minWidth:0}}>
-          <div style={{display:'inline-flex',alignItems:'center',gap:6,background:PL,color:PT,fontSize:12,fontWeight:700,padding:'5px 14px',borderRadius:999,border:`0.5px solid ${BR}`,marginBottom:22}}>
-            <div style={{width:7,height:7,borderRadius:'50%',background:'#36DB9C'}} />
-            {settings.hero_badge}
-          </div>
-          <h1 style={{fontSize:'clamp(28px,7vw,46px)',fontWeight:900,lineHeight:1.15,letterSpacing:-1.5,marginBottom:18,color:T1}}>
-            {hero.pre}{hero.highlight && <span style={{color:P}}>{hero.highlight}</span>}{hero.post}
-          </h1>
-          <p style={{fontSize:16,color:T2,lineHeight:1.75,marginBottom:30,maxWidth:400}}>
-            {settings.hero_subtitle}
-          </p>
-          <Link href="/checkout" style={{background:P,color:'#fff',display:'inline-flex',alignItems:'center',gap:8,maxWidth:'100%',fontSize:'clamp(14px,3vw,17px)',fontWeight:900,padding:'16px clamp(18px,5vw,30px)',borderRadius:16,textDecoration:'none',boxShadow:'0 4px 20px rgba(103,71,178,.35)',letterSpacing:-0.3}}>
-            {settings.hero_cta_text} — {settings.product_price} د.ك
-          </Link>
-          <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:T3,marginTop:8}}>
-            <IconLockLine /> تحميل فوري · دفع آمن · ضمان 7 أيام
-          </div>
-          <div style={{display:'flex',gap:10,marginTop:22,flexWrap:'wrap'}}>
-            {['+500 نسخة مُباعة','4.9 تقييم','موثوق من شركات التنظيف'].map((t,i)=>(
-              <div key={i} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,fontWeight:700,color:T2,background:'#fff',border:`0.5px solid ${BR}`,padding:'5px 12px',borderRadius:999}}>
-                <div style={{width:5,height:5,borderRadius:'50%',background:'#36DB9C'}} />
-                {t}
-              </div>
-            ))}
-          </div>
+      <section style={{maxWidth:720,margin:'0 auto',padding:'clamp(96px,18vw,132px) clamp(20px,6vw,40px) clamp(64px,10vw,88px)',display:'flex',flexDirection:'column',alignItems:'center',textAlign:'center'}}>
+        <div style={{display:'inline-flex',alignItems:'center',gap:6,background:PL,color:PT,fontSize:12,fontWeight:700,padding:'5px 14px',borderRadius:999,border:`0.5px solid ${BR}`,marginBottom:22}}>
+          <div style={{width:7,height:7,borderRadius:'50%',background:'#36DB9C'}} />
+          {settings.hero_badge}
         </div>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
-          {settings.product_image_url ? (
-            <div style={{width:'clamp(180px,55vw,240px)',height:'clamp(240px,73vw,320px)',borderRadius:20,boxShadow:'0 40px 80px rgba(103,71,178,.35)',position:'relative',overflow:'hidden'}}>
-              <Image src={settings.product_image_url} alt={settings.product_name} fill style={{objectFit:'cover'}} />
-            </div>
-          ) : (
-            <div style={{width:'clamp(180px,55vw,240px)',height:'clamp(240px,73vw,320px)',borderRadius:20,background:'linear-gradient(145deg,#6747B2 0%,#9b7fe0 50%,#6239b0 100%)',boxShadow:'0 40px 80px rgba(103,71,178,.35)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:16,position:'relative',overflow:'hidden'}}>
-              <div style={{position:'absolute',top:12,left:12,background:'#FCB932',color:'#412402',fontSize:10,fontWeight:900,padding:'3px 9px',borderRadius:999}}>PDF</div>
-              <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,background:'linear-gradient(135deg,rgba(255,255,255,0.1) 0%,transparent 50%)',pointerEvents:'none'}} />
-              <IconBook2 size={48} color="rgba(255,255,255,0.9)" />
-              <div style={{color:'#fff',fontSize:22,fontWeight:900,letterSpacing:-0.5}}>رَوْنَق</div>
-              <div style={{color:'rgba(255,255,255,0.6)',fontSize:11}}>دليل التنظيف الاحترافي</div>
-            </div>
-          )}
+        <h1 style={{fontSize:'clamp(30px,7vw,50px)',fontWeight:900,lineHeight:1.15,letterSpacing:-1.5,marginBottom:18,color:T1,maxWidth:640}}>
+          {hero.pre}{hero.highlight && <span style={{color:P}}>{hero.highlight}</span>}{hero.post}
+        </h1>
+        <p style={{fontSize:16,color:T2,lineHeight:1.75,marginBottom:32,maxWidth:460}}>
+          {settings.hero_subtitle}
+        </p>
+        <Link href="/checkout" style={{background:P,color:'#fff',display:'inline-flex',alignItems:'center',gap:8,maxWidth:'100%',fontSize:'clamp(15px,3.2vw,18px)',fontWeight:900,padding:'17px clamp(24px,6vw,36px)',borderRadius:16,textDecoration:'none',boxShadow:'0 4px 20px rgba(103,71,178,.35)',letterSpacing:-0.3}}>
+          {settings.hero_cta_text} — {settings.product_price} د.ك
+        </Link>
+        <div style={{display:'flex',alignItems:'baseline',gap:8,marginTop:16}}>
+          <span style={{fontSize:15,color:T3,textDecoration:'line-through'}}>{settings.product_original_price} د.ك</span>
+          <span style={{fontSize:18,fontWeight:900,color:P}}>{settings.product_price} د.ك</span>
+          <span style={{fontSize:12,fontWeight:700,color:'#0F6E56',background:'#E1F5EE',padding:'3px 10px',borderRadius:999}}>عرض الإطلاق</span>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:T3,marginTop:14}}>
+          <IconLockLine /> تحميل فوري · دفع آمن
         </div>
       </section>
 
@@ -238,8 +233,8 @@ export default async function HomePage() {
         <h2 style={{fontSize:'clamp(22px,4.5vw,30px)',fontWeight:900,letterSpacing:-0.8,marginBottom:6}}>استثمار واحد — نتائج مدى الحياة</h2>
         <p style={{fontSize:15,color:T2,marginBottom:36}}>سعر أقل من جلسة تنظيف احترافية واحدة</p>
         <div style={{maxWidth:380,margin:'0 auto',background:'#fff',border:`2px solid ${P}`,borderRadius:24,padding:'clamp(28px,7vw,36px) clamp(22px,6vw,32px)',position:'relative'}}>
-          <div style={{position:'absolute',top:18,left:18,background:P,color:'#fff',fontSize:11,fontWeight:900,padding:'4px 14px',borderRadius:999}}>الأكثر قيمة</div>
-          <div style={{fontSize:14,color:T3,textDecoration:'line-through',marginBottom:4}}>25 دينار</div>
+          <div style={{position:'absolute',top:18,left:18,background:'#E1F5EE',color:'#0F6E56',fontSize:11,fontWeight:900,padding:'4px 14px',borderRadius:999}}>عرض الإطلاق</div>
+          <div style={{fontSize:15,color:T3,textDecoration:'line-through',marginBottom:4}}>{settings.product_original_price} دينار</div>
           <div style={{fontSize:'clamp(38px,10vw,52px)',fontWeight:900,color:P,letterSpacing:-2,lineHeight:1,marginBottom:4}}>
             {settings.product_price} <span style={{fontSize:18,fontWeight:400,color:T3}}>دينار كويتي</span>
           </div>
@@ -275,17 +270,6 @@ export default async function HomePage() {
         </div>
       </div>
 
-      {/* ── GUARANTEE ── */}
-      <div id="guarantee" style={{maxWidth:900,margin:'0 auto',padding:'clamp(40px,8vw,64px) clamp(20px,6vw,40px)',textAlign:'center'}}>
-        <div style={{display:'flex',flexWrap:'wrap',alignItems:'center',justifyContent:'center',gap:18,maxWidth:440,margin:'0 auto',background:'#E1F5EE',border:'1px solid #5DCAA5',borderRadius:20,padding:'24px 28px'}}>
-          <IconShieldCheck size={36} color="#085041" style={{flexShrink:0}} />
-          <div style={{textAlign:'right',minWidth:0}}>
-            <div style={{fontSize:16,fontWeight:900,color:'#04342C',marginBottom:4}}>ضمان الاسترجاع الكامل خلال 7 أيام</div>
-            <div style={{fontSize:13,color:'#085041'}}>إذا لم تكوني راضية، نُعيد لك المبلغ بالكامل دون أي أسئلة.</div>
-          </div>
-        </div>
-      </div>
-
       {/* ── FINAL CTA ── */}
       <section style={{background:P,padding:'clamp(56px,10vw,80px) clamp(20px,6vw,40px)',textAlign:'center'}}>
         <h2 style={{fontSize:'clamp(24px,5vw,34px)',fontWeight:900,color:'#fff',letterSpacing:-0.8,marginBottom:10}}>{settings.final_cta_title}</h2>
@@ -297,7 +281,7 @@ export default async function HomePage() {
           {[
             {Icon:IconBolt,       text:'تحميل فوري'},
             {Icon:IconShieldCheck,text:'دفع آمن'},
-            {Icon:IconCircleCheck,text:'ضمان 7 أيام'},
+            {Icon:IconCircleCheck,text:'دفعة واحدة فقط'},
           ].map(({Icon,text})=>(
             <span key={text} style={{fontSize:13,color:'rgba(255,255,255,0.75)',display:'flex',alignItems:'center',gap:6}}>
               <Icon size={14} color="rgba(255,255,255,0.75)" />{text}

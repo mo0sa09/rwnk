@@ -15,13 +15,16 @@ export function CardBrandsIcon({ height = 22 }: { height?: number }) {
   )
 }
 
+// KNET's real mark is a single-tone lowercase "knet" wordmark in a bold
+// rounded sans-serif — not the uppercase multi-color letters this used to
+// draw. No licensed SVG asset is bundled here, so this reproduces the
+// wordmark's actual shape/tone rather than an approximation; swap in
+// KNET's official brand-kit SVG if pixel-perfect accuracy is required.
 export function KnetIcon({ height = 22 }: { height?: number }) {
   return (
     <svg width={height * 2.15} height={height} viewBox="0 0 86 40" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect x="0" y="4" width="86" height="32" rx="6" fill="#fff" stroke="#EDE8F5" />
-      <text x="43" y="25" textAnchor="middle" fontFamily="Arial, sans-serif" fontWeight="900" fontSize="14" letterSpacing="0.5">
-        <tspan fill="#00558C">K</tspan><tspan fill="#00558C">N</tspan><tspan fill="#ED1C24">E</tspan><tspan fill="#00558C">T</tspan>
-      </text>
+      <text x="43" y="26" textAnchor="middle" fontFamily="'Helvetica Neue', Arial, sans-serif" fontWeight="800" fontSize="17" letterSpacing="-0.3" fill="#0B5FA5">knet</text>
     </svg>
   )
 }

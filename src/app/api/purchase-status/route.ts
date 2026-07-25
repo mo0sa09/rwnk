@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getSupabaseServerEnv } from '@/lib/env'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,8 +10,7 @@ export async function GET(request: NextRequest) {
   const purchaseId = request.nextUrl.searchParams.get('purchaseId')
   if (!purchaseId) return NextResponse.json({ error: 'رقم الطلب مفقود' }, { status: 400 })
 
-  const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const { url: sbUrl, key: sbKey } = getSupabaseServerEnv()
   if (!sbUrl || !sbKey) return NextResponse.json({ error: 'الخدمة غير مهيأة' }, { status: 500 })
 
   const { createClient } = await import('@supabase/supabase-js')

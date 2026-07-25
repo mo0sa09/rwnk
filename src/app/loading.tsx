@@ -2,7 +2,7 @@ export default function Loading() {
   return (
     <div style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: "'Th','Noto Kufi Arabic',serif", direction: 'rtl', background: '#fff',
+      fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif", direction: 'rtl', background: '#fff',
     }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
         <div style={{

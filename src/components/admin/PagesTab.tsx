@@ -6,7 +6,7 @@ import type { PageContent } from '@/types'
 const W = '#fff'
 const inp: React.CSSProperties = {
   width: '100%', height: 42, background: '#fafafa', border: `1px solid ${C.border}`,
-  borderRadius: 10, padding: '0 12px', fontSize: 13, color: C.text1, outline: 'none', fontFamily: "'Th',serif",
+  borderRadius: 10, padding: '0 12px', fontSize: 13, color: C.text1, outline: 'none', fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif",
 }
 const label: React.CSSProperties = { display: 'block', fontSize: 10, fontWeight: 700, color: C.text2, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 5 }
 
@@ -69,7 +69,7 @@ export function PagesTab() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         {SLUGS.map(s => (
           <button key={s.slug} onClick={() => setActive(s.slug)} style={{
-            height: 36, padding: '0 16px', borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: "'Th',serif",
+            height: 36, padding: '0 16px', borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif",
             background: active === s.slug ? C.primary : '#fff', color: active === s.slug ? W : C.text2,
             border: `1px solid ${active === s.slug ? C.primary : C.border}`,
           }}>
@@ -98,7 +98,7 @@ export function PagesTab() {
       )}
 
       {msg && <div style={{ margin: '14px 0', padding: '10px 16px', background: msg.startsWith('✓') ? C.secondaryBg : C.errorBg, borderRadius: 10, fontSize: 13, fontWeight: 700, color: msg.startsWith('✓') ? '#085041' : '#A32D2D' }}>{msg}</div>}
-      <button onClick={save} disabled={saving || loading} style={{ marginTop: 14, height: 46, padding: '0 28px', background: saving ? '#8b6dd4' : C.primary, color: W, border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 900, cursor: saving ? 'wait' : 'pointer', fontFamily: "'Th',serif", boxShadow: '0 2px 12px rgba(103,71,178,.28)' }}>
+      <button onClick={save} disabled={saving || loading} style={{ marginTop: 14, height: 46, padding: '0 28px', background: saving ? '#8b6dd4' : C.primary, color: W, border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 900, cursor: saving ? 'wait' : 'pointer', fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif", boxShadow: '0 2px 12px rgba(103,71,178,.28)' }}>
         {saving ? 'جاري الحفظ...' : 'حفظ الصفحة'}
       </button>
     </div>

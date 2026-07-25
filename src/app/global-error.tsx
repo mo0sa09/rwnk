@@ -13,7 +13,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
       <body>
         <div style={{
           minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: "'Th','Noto Kufi Arabic',serif", direction: 'rtl', background: '#fff', color: '#1A1228',
+          fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif", direction: 'rtl', background: '#fff', color: '#1A1228',
           textAlign: 'center', padding: '40px 24px',
         }}>
           <div style={{ maxWidth: 420 }}>
@@ -21,7 +21,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
             <p style={{ fontSize: 14, color: '#9890AA', lineHeight: 1.7, marginBottom: 28 }}>
               يرجى إعادة تحميل الصفحة. إذا استمرت المشكلة، تواصلي معنا.
             </p>
-            <button onClick={() => reset()} style={{ background: '#6747B2', color: '#fff', fontSize: 14, fontWeight: 900, padding: '12px 24px', borderRadius: 12, border: 'none', cursor: 'pointer', fontFamily: "'Th',serif" }}>
+            <button onClick={() => reset()} style={{ background: '#6747B2', color: '#fff', fontSize: 14, fontWeight: 900, padding: '12px 24px', borderRadius: 12, border: 'none', cursor: 'pointer', fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif" }}>
               إعادة المحاولة
             </button>
           </div>

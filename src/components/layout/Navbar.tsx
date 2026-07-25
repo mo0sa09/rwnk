@@ -35,13 +35,13 @@ export default function Navbar({ rightContent }: NavbarProps) {
       background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)',
       borderBottom: `1px solid ${C.border}`,
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '0 36px', fontFamily: "'Th','Noto Kufi Arabic',serif",
+      padding: '0 36px', fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif",
       direction: 'rtl',
     }}>
 
       {/* Logo */}
       <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', flexShrink: 0 }}>
-        <Image src="/logo-icon.png" alt="رَوْنَق" width={28} height={28} style={{ objectFit: 'contain' }} />
+        <Image src="/logo-icon.png" alt="رَوْنَق" width={28} height={33} style={{ width: 28, height: 33, objectFit: 'contain', flexShrink: 0 }} />
         <span style={{ fontSize: 17, fontWeight: 900, color: C.text1, letterSpacing: -0.3 }}>رَوْنَق</span>
       </Link>
 

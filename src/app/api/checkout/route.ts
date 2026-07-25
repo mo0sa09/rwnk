@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getSupabaseServerEnv } from '@/lib/env'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,8 +23,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'صيغة البريد الإلكتروني غير صحيحة' }, { status: 400 })
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const { url, key } = getSupabaseServerEnv()
   if (!url || !key) return NextResponse.json({ error: 'الخدمة غير مهيأة، حاولي لاحقاً' }, { status: 500 })
 
   const { createClient } = await import('@supabase/supabase-js')

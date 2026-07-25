@@ -40,7 +40,7 @@ export default function CheckoutPage() {
 
   const focus=(e:React.FocusEvent<HTMLInputElement>)=>{e.target.style.borderColor=P;e.target.style.boxShadow='0 0 0 3px rgba(103,71,178,.1)'}
   const blur=(e:React.FocusEvent<HTMLInputElement>)=>{e.target.style.borderColor=BR;e.target.style.boxShadow='none'}
-  const inp:React.CSSProperties={width:'100%',height:42,background:'#FAFAFA',border:`1px solid ${BR}`,borderRadius:10,padding:'0 12px',fontSize:13,color:T1,outline:'none',fontFamily:"'Th',serif",transition:'all .2s'}
+  const inp:React.CSSProperties={width:'100%',height:42,background:'#FAFAFA',border:`1px solid ${BR}`,borderRadius:10,padding:'0 12px',fontSize:13,color:T1,outline:'none',fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif",transition:'all .2s'}
 
   async function handlePay(){
     if (submitting.current || loading) return
@@ -76,11 +76,11 @@ export default function CheckoutPage() {
   const priceLabel = `${price} د.ك`
 
   return (
-    <div className="checkout-shell" style={{width:'100vw',minHeight:'100vh',display:'grid',gridTemplateColumns:'1fr 400px',fontFamily:"'Th','Noto Kufi Arabic',serif",direction:'rtl',background:'#fff'}}>
+    <div className="checkout-shell" style={{width:'100vw',minHeight:'100vh',display:'grid',gridTemplateColumns:'1fr 400px',fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif",direction:'rtl',background:'#fff'}}>
       <div className="checkout-col-main" style={{overflowY:'auto',padding:'clamp(20px,5vw,32px) clamp(16px,5vw,40px)',backgroundImage:'radial-gradient(circle,rgba(103,71,178,0.04) 1px,transparent 1px)',backgroundSize:'28px 28px'}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:28,flexWrap:'wrap',gap:8}}>
           <Link href="/" style={{display:'flex',alignItems:'center',gap:8,textDecoration:'none'}}>
-            <Image src="/logo-icon.png" alt="رَوْنَق" width={26} height={26} style={{objectFit:'contain'}}/>
+            <Image src="/logo-icon.png" alt="رَوْنَق" width={26} height={31} style={{width:26,height:31,objectFit:'contain',flexShrink:0}}/>
             <span style={{fontSize:16,fontWeight:900,color:T1}}>رَوْنَق</span>
           </Link>
           <span style={{fontSize:12,color:T3}}>دفع آمن ومشفّر</span>
@@ -109,7 +109,7 @@ export default function CheckoutPage() {
           <div className="checkout-pm-grid" role="radiogroup" aria-label="طريقة الدفع" style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:16}}>
             {PM.map(m=>(
               <button key={m.id} type="button" role="radio" aria-checked={pm===m.id} onClick={()=>setPm(m.id)}
-                style={{minHeight:44,border:`1.5px solid ${pm===m.id?P:BR}`,background:pm===m.id?PL:'#fff',borderRadius:10,padding:'10px 8px',textAlign:'center',cursor:'pointer',fontFamily:"'Th',serif"}}>
+                style={{minHeight:44,border:`1.5px solid ${pm===m.id?P:BR}`,background:pm===m.id?PL:'#fff',borderRadius:10,padding:'10px 8px',textAlign:'center',cursor:'pointer',fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif"}}>
                 <div style={{display:'flex',justifyContent:'center',marginBottom:5}}><m.Icon height={20} /></div>
                 <div style={{fontSize:11,fontWeight:700,color:T2}}>{m.label}</div>
               </button>
@@ -133,21 +133,24 @@ export default function CheckoutPage() {
           </div>
         </div>
         <div style={{borderTop:`1px solid ${BR}`,paddingTop:14,marginBottom:14}}>
-          {[{l:'سعر الكتاب',v:priceLabel},{l:'ضريبة القيمة المضافة',v:'0 د.ك'},{l:'الشحن',v:'مجاني',g:true}].map((r,i)=>(
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:13,marginBottom:9}}>
+            <span style={{color:T3}}>سعر الكتاب</span>
+            <span style={{display:'flex',alignItems:'baseline',gap:6}}>
+              <span style={{fontWeight:700,color:T3,textDecoration:'line-through',fontSize:12}}>{settings.product_original_price} د.ك</span>
+              <span style={{fontWeight:900,color:P}}>{priceLabel}</span>
+            </span>
+          </div>
+          {[{l:'ضريبة القيمة المضافة',v:'0 د.ك'},{l:'الشحن',v:'مجاني',g:true}].map((r,i)=>(
             <div key={i} style={{display:'flex',justifyContent:'space-between',fontSize:13,marginBottom:9}}>
               <span style={{color:T3}}>{r.l}</span><span style={{fontWeight:700,color:r.g?'#085041':T1}}>{r.v}</span>
             </div>
           ))}
         </div>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 0',borderTop:`1px solid ${BR}`,marginBottom:16}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 0',borderTop:`1px solid ${BR}`,marginBottom:20}}>
           <span style={{fontSize:14,fontWeight:900,color:T1}}>الإجمالي</span>
           <span style={{fontSize:26,fontWeight:900,color:P,letterSpacing:-0.5}}>{price} <span style={{fontSize:13,fontWeight:400,color:T3}}>د.ك</span></span>
         </div>
-        <div style={{display:'flex',alignItems:'center',gap:10,background:'#E1F5EE',borderRadius:11,padding:'10px 12px',marginBottom:16}}>
-          <svg width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='#085041' strokeWidth='2'><path d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'/></svg>
-          <div><div style={{fontSize:12,fontWeight:900,color:'#085041'}}>ضمان الاسترجاع 7 أيام</div><div style={{fontSize:11,color:'#0F6E56',marginTop:1}}>استرجاع كامل بدون أسئلة</div></div>
-        </div>
-        <button onClick={handlePay} disabled={loading} aria-busy={loading} style={{width:'100%',height:52,background:loading?'#8b6dd4':P,color:'#fff',border:'none',borderRadius:12,fontSize:15,fontWeight:900,cursor:loading?'wait':'pointer',fontFamily:"'Th',serif",boxShadow:'0 2px 12px rgba(103,71,178,.28)'}}>
+        <button onClick={handlePay} disabled={loading} aria-busy={loading} style={{width:'100%',height:52,background:loading?'#8b6dd4':P,color:'#fff',border:'none',borderRadius:12,fontSize:15,fontWeight:900,cursor:loading?'wait':'pointer',fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif",boxShadow:'0 2px 12px rgba(103,71,178,.28)'}}>
           {loading?'جاري التحويل لبوابة الدفع...':`ادفع الآن — ${priceLabel}`}
         </button>
         <p style={{textAlign:'center',fontSize:11,color:T3,marginTop:8}}>مدفوعات مشفّرة وآمنة</p>

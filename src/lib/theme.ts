@@ -27,7 +27,7 @@ export const defaultTheme = {
     success:    '#36DB9C',
     successBg:  '#E1F5EE',
   },
-  font:     "'Th','Noto Kufi Arabic',serif",
+  font:     "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif",
   radius: {
     sm:   '8px',
     md:   '12px',

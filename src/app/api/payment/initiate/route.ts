@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getSupabaseServerEnv } from '@/lib/env'
 
 export const dynamic = 'force-dynamic'
 
@@ -72,9 +73,15 @@ export async function POST(request: NextRequest) {
   const purchaseId = typeof body?.purchaseId === 'string' ? body.purchaseId : ''
   if (!purchaseId) return NextResponse.json({ error: 'Missing purchaseId' }, { status: 400 })
 
-  const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const { url: sbUrl, key: sbKey } = getSupabaseServerEnv()
   if (!sbUrl || !sbKey) return NextResponse.json({ error: 'Service misconfigured' }, { status: 500 })
+
+  const gatewayCheck = (process.env.PAYMENT_GATEWAY ?? 'myfatoorah') as 'myfatoorah' | 'tap'
+  const gatewayKeyMissing = gatewayCheck === 'tap' ? !process.env.TAP_SECRET_KEY : !process.env.MYFATOORAH_API_KEY
+  if (gatewayKeyMissing) {
+    console.error(`[env] Missing required environment variable(s): ${gatewayCheck === 'tap' ? 'TAP_SECRET_KEY' : 'MYFATOORAH_API_KEY'}. Set it in the hosting platform's environment variable settings.`)
+    return NextResponse.json({ error: 'Payment gateway misconfigured' }, { status: 500 })
+  }
 
   const { createClient } = await import('@supabase/supabase-js')
   const sb = createClient(sbUrl, sbKey) as any

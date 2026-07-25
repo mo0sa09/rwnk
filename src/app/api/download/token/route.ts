@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getSupabaseServerEnv } from '@/lib/env'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,8 +15,7 @@ export async function POST(request: NextRequest) {
   const purchaseId = typeof body?.purchaseId === 'string' ? body.purchaseId : ''
   if (!purchaseId) return NextResponse.json({ error: 'رقم الطلب مفقود' }, { status: 400 })
 
-  const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const { url: sbUrl, key: sbKey } = getSupabaseServerEnv()
   if (!sbUrl || !sbKey) return NextResponse.json({ error: 'الخدمة غير مهيأة، حاولي لاحقاً' }, { status: 500 })
 
   // If the caller is logged in, verify they own this purchase (defense in depth).

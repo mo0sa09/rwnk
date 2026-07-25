@@ -18,8 +18,15 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 html, body { max-width: 100%; overflow-x: hidden; }
+/* Arabic-capable fallback stack used everywhere 'Th' is referenced: if the
+   ~430KB embedded webfont is still loading, fails to load (slow network,
+   iOS Safari data-URI edge cases), or is missing a glyph the page needs,
+   text falls through to real system fonts with proper Arabic shaping
+   (joining/diacritics) instead of a generic serif that mostly doesn't
+   support Arabic and renders letters disconnected. font-display: swap is
+   already set on every @font-face in styles/fonts.css. */
 body {
-  font-family: 'Th', 'Noto Kufi Arabic', serif !important;
+  font-family: 'Th', 'Noto Kufi Arabic', 'Segoe UI', Tahoma, 'Geeza Pro', Arial, serif !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   direction: rtl;
@@ -28,7 +35,7 @@ body {
 }
 a { text-decoration: none; color: inherit; }
 button, input, select, textarea {
-  font-family: 'Th', 'Noto Kufi Arabic', serif !important;
+  font-family: 'Th', 'Noto Kufi Arabic', 'Segoe UI', Tahoma, 'Geeza Pro', Arial, serif !important;
 }
 img, svg { max-width: 100%; }
 table { max-width: 100%; }

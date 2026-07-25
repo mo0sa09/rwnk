@@ -8,6 +8,7 @@ export interface StoreSettings {
   store_tagline:    string
   product_name:     string
   product_price:    number
+  product_original_price: number
   product_currency: string
   product_id:       string
   whatsapp:         string
@@ -39,7 +40,8 @@ export const DEFAULT_SETTINGS: StoreSettings = {
   store_name:       'رَوْنَق',
   store_tagline:    'دليل التنظيف الاحترافي',
   product_name:     'كتاب رَوْنَق — دليل التنظيف الاحترافي',
-  product_price:    15,
+  product_price:    5,
+  product_original_price: 7,
   product_currency: 'KWD',
   product_id:       'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   whatsapp:         '+96500000000',
@@ -57,16 +59,16 @@ export const DEFAULT_SETTINGS: StoreSettings = {
   hero_cta_text:          'اشترِ الآن',
   pricing_cta_text:       'اشترِ الآن وحمّلي فوراً',
   final_cta_title:        'ابدئي رحلتك نحو منزل بمستوى الفنادق اليوم',
-  final_cta_subtitle:     'انضمي إلى +500 عائلة اختارت رَوْنَق نظاماً لمنازلها',
+  final_cta_subtitle:     'ابدئي رحلتك نحو منزل بمستوى الفنادق مع رَوْنَق',
   final_cta_button_text:  'اشترِ الآن',
   footer_cta_title:       'ابدئي بتحويل منزلك اليوم',
   footer_cta_subtitle:    'دليل تنظيف احترافي بمعايير 5 نجوم — تحميل فوري',
   stats_visible:          false,
   stats: [
-    { value: '+500',   label: 'نسخة مُباعة' },
-    { value: '4.9',    label: 'متوسط التقييم' },
-    { value: '7 أيام', label: 'ضمان استرجاع' },
-    { value: '5',      label: 'نجوم معيار' },
+    { value: '٥',    label: 'فصول تدريبية' },
+    { value: 'PDF',  label: 'تحميل فوري' },
+    { value: 'KWD',  label: 'دفعة واحدة' },
+    { value: '٢٤/٧', label: 'وصول دائم للدليل' },
   ],
   testimonials_visible: false,
 }

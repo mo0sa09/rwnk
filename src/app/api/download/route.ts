@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getSupabaseServerEnv } from '@/lib/env'
 export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get('token')
   if (!token) return NextResponse.json({ error: 'Missing token' }, { status: 400 })
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const { url, key } = getSupabaseServerEnv()
   if (!url || !key) return NextResponse.json({ error: 'Misconfigured' }, { status: 500 })
   const { createClient } = await import('@supabase/supabase-js')
   const sb = createClient(url, key) as any

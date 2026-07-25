@@ -33,7 +33,7 @@ export const RESOURCES: Record<string, ResourceConfig> = {
 }
 
 export const STORE_SETTINGS_FIELDS = [
-  'store_name', 'store_tagline', 'product_name', 'product_price', 'product_currency',
+  'store_name', 'store_tagline', 'product_name', 'product_price', 'product_original_price', 'product_currency',
   'whatsapp', 'email', 'instagram', 'twitter', 'primary_color', 'downloads_limit',
   'product_description', 'product_image_url',
   'hero_badge', 'hero_title', 'hero_subtitle', 'hero_cta_text', 'pricing_cta_text',
