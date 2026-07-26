@@ -36,7 +36,7 @@ export default function SuccessPage() {
 
   const focus = (e: React.FocusEvent<HTMLInputElement>) => { e.target.style.borderColor=C.primary; e.target.style.boxShadow='0 0 0 3px rgba(103,71,178,.1)' }
   const blur  = (e: React.FocusEvent<HTMLInputElement>) => { e.target.style.borderColor=C.border;  e.target.style.boxShadow='none' }
-  const inpS: React.CSSProperties = { width:'100%', height:44, background:'#FAFAFA', border:`1px solid ${C.border}`, borderRadius:11, padding:'0 14px', fontSize:13, color:C.text1, outline:'none', fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif", direction:'ltr', transition:'all .2s' }
+  const inpS: React.CSSProperties = { width:'100%', height:44, background:'#FAFAFA', border:`1px solid ${C.border}`, borderRadius:11, padding:'0 14px', fontSize:13, color:C.text1, outline:'none', fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif", direction:'ltr', transition:'all .2s' }
 
   useEffect(() => {
     async function load() {
@@ -92,7 +92,7 @@ export default function SuccessPage() {
   const dlLeft = (info?.downloads_limit ?? 0) - (info?.downloads_used ?? 0)
 
   if (step === 'loading') return (
-    <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif", color:C.text3, fontSize:14 }}>
+    <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif", color:C.text3, fontSize:14 }}>
       جاري التحميل...
     </div>
   )
@@ -100,7 +100,7 @@ export default function SuccessPage() {
   if (step === 'not_found' || step === 'pending') return (
     <>
       <Navbar />
-      <main style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', paddingTop:68, paddingBottom:40, fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif", direction:'rtl', background:'#fff' }}>
+      <main style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', paddingTop:68, paddingBottom:40, fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif", direction:'rtl', background:'#fff' }}>
         <div style={{ width:'100%', maxWidth:440, padding:'40px 32px', textAlign:'center' }}>
           <div style={{ width:56, height:56, borderRadius:'50%', margin:'0 auto 16px', background:C.errorBg, border:'1.5px solid #FECACA', display:'flex', alignItems:'center', justifyContent:'center' }}>
             <IconAlertTriangle size={26} color="#A32D2D" />
@@ -129,7 +129,7 @@ export default function SuccessPage() {
         </Link>
       } />
 
-      <main style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', paddingTop:68, paddingBottom:40, fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif", direction:'rtl', background:'#fff', backgroundImage:'radial-gradient(ellipse 70% 55% at 50% 30%, rgba(54,219,156,0.05) 0%, transparent 70%)' }}>
+      <main style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', paddingTop:68, paddingBottom:40, fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif", direction:'rtl', background:'#fff', backgroundImage:'radial-gradient(ellipse 70% 55% at 50% 30%, rgba(54,219,156,0.05) 0%, transparent 70%)' }}>
         <div className="success-card" style={{ width:'100%', maxWidth:500, padding:'clamp(28px,7vw,44px) clamp(20px,6vw,40px)', background:'#fff', border:`1px solid ${C.border}`, borderRadius:24, boxShadow:'0 4px 24px rgba(103,71,178,.07),0 16px 48px rgba(103,71,178,.05)' }}>
 
           {/* Success header */}
@@ -177,7 +177,7 @@ export default function SuccessPage() {
               width:'100%', height:48, background:dlLeft<=0?C.text4:dlLoad?'#8b6dd4':C.primary, color:'#fff',
               border:'none', borderRadius:11, fontSize:14, fontWeight:900,
               cursor:dlLeft<=0?'not-allowed':dlLoad?'wait':'pointer',
-              fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif", boxShadow:dlLeft>0?'0 2px 12px rgba(103,71,178,.28)':'none',
+              fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif", boxShadow:dlLeft>0?'0 2px 12px rgba(103,71,178,.28)':'none',
               display:'flex', alignItems:'center', justifyContent:'center', gap:9, transition:'all .2s',
             }}>
               <IconDownload size={18} />
@@ -208,12 +208,12 @@ export default function SuccessPage() {
                   <input id="success-pwd2" type="password" placeholder="••••••••" autoComplete="new-password" value={pwd2} onChange={e=>setPwd2(e.target.value)} onFocus={focus} onBlur={blur} style={inpS} />
                 </div>
                 {pwError && <p role="alert" style={{ fontSize:12, color:'#A32D2D', marginBottom:10, padding:'7px 12px', background:'#FEF2F2', borderRadius:8 }}>{pwError}</p>}
-                <button type="submit" disabled={pwLoading} aria-busy={pwLoading} style={{ width:'100%', height:44, background:pwLoading?'#8b6dd4':C.primary, color:'#fff', border:'none', borderRadius:11, fontSize:13, fontWeight:900, cursor:pwLoading?'wait':'pointer', fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif", display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+                <button type="submit" disabled={pwLoading} aria-busy={pwLoading} style={{ width:'100%', height:44, background:pwLoading?'#8b6dd4':C.primary, color:'#fff', border:'none', borderRadius:11, fontSize:13, fontWeight:900, cursor:pwLoading?'wait':'pointer', fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif", display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
                   <IconUser size={16} />
                   {pwLoading ? 'جاري الإنشاء...' : 'إنشاء حسابي وحفظ الوصول'}
                 </button>
               </form>
-              <button onClick={() => setStep('done')} style={{ width:'100%', marginTop:8, background:'none', border:'none', fontSize:12, color:C.text3, cursor:'pointer', fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif" }}>
+              <button onClick={() => setStep('done')} style={{ width:'100%', marginTop:8, background:'none', border:'none', fontSize:12, color:C.text3, cursor:'pointer', fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif" }}>
                 تجاهل — سأنشئ حساباً لاحقاً
               </button>
             </div>

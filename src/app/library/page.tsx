@@ -40,16 +40,16 @@ export default function LibraryPage() {
       setDlState(s=>({...s,[item.id]:'idle'}))
     }
   }
-  if(loading) return <div style={{height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif",color:T3}}>جاري التحميل...</div>
+  if(loading) return <div style={{height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif",color:T3}}>جاري التحميل...</div>
   return (
     <>
       <Navbar rightContent={
-        <div style={{display:'flex',alignItems:'center',gap:8,fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif"}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif"}}>
           <Link href="/account" style={{fontSize:13,color:T2,padding:'7px 14px',borderRadius:8,textDecoration:'none'}}>حسابي</Link>
-          <button onClick={async()=>{await signOut();window.location.href='/'}} style={{fontSize:13,color:'#A32D2D',background:'none',border:'none',padding:'7px 14px',borderRadius:8,fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif",cursor:'pointer'}}>خروج</button>
+          <button onClick={async()=>{await signOut();window.location.href='/'}} style={{fontSize:13,color:'#A32D2D',background:'none',border:'none',padding:'7px 14px',borderRadius:8,fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif",cursor:'pointer'}}>خروج</button>
         </div>
       }/>
-      <main style={{minHeight:'100vh',background:'#FAFAFA',paddingTop:78,paddingBottom:48,fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif"}}>
+      <main style={{minHeight:'100vh',background:'#FAFAFA',paddingTop:78,paddingBottom:48,fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif"}}>
         <div style={{maxWidth:860,margin:'0 auto',padding:'0 24px'}}>
           <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:28}}>
             <h1 style={{fontSize:26,fontWeight:900,letterSpacing:-0.7,color:T1}}>مكتبتي </h1>
@@ -100,7 +100,7 @@ export default function LibraryPage() {
                     </div>
                   </div>
                   <div className="library-item-actions" style={{display:'flex',flexDirection:'column',gap:8,minWidth:140}}>
-                    <button onClick={()=>handleDownload(item)} disabled={st==='loading'||dlLeft<=0} style={{height:44,background:dlLeft<=0?'#C8C0D8':st==='loading'?'#8b6dd4':P,color:'#fff',border:'none',borderRadius:10,fontSize:13,fontWeight:900,cursor:dlLeft<=0||st==='loading'?'not-allowed':'pointer',fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif",transition:'all .2s'}}>
+                    <button onClick={()=>handleDownload(item)} disabled={st==='loading'||dlLeft<=0} style={{height:44,background:dlLeft<=0?'#C8C0D8':st==='loading'?'#8b6dd4':P,color:'#fff',border:'none',borderRadius:10,fontSize:13,fontWeight:900,cursor:dlLeft<=0||st==='loading'?'not-allowed':'pointer',fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif",transition:'all .2s'}}>
                       {st==='loading'?'...':dlLeft<=0?'نفذت':'⬇ تحميل'}
                     </button>
                     <Link href="/account" style={{height:44,background:'#fff',border:`1px solid ${BR}`,borderRadius:10,fontSize:12,fontWeight:700,color:T2,display:'flex',alignItems:'center',justifyContent:'center',textDecoration:'none'}}>حسابي</Link>

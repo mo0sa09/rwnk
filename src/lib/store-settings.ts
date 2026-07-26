@@ -42,6 +42,7 @@ export interface StoreSettings {
   meta_description: string
   meta_keywords:    string
   og_image_url:     string | null
+  hero_image_url:   string | null
 }
 
 export const DEFAULT_SETTINGS: StoreSettings = {
@@ -86,6 +87,7 @@ export const DEFAULT_SETTINGS: StoreSettings = {
   meta_description: 'دليل تدريبي احترافي يحوّل عاملتك المنزلية إلى خبيرة تنظيف بمعايير الفنادق الخمس نجوم. تحميل فوري بعد الدفع.',
   meta_keywords:    'تنظيف منزلي, تدريب عاملات, دليل تنظيف, تنظيف احترافي, رونق, الكويت',
   og_image_url:     null,
+  hero_image_url:   null,
 }
 
 // No module-level cache here on purpose: this used to memoize the result

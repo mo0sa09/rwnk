@@ -25,7 +25,7 @@ const W = '#fff'
 const inp: React.CSSProperties = {
   width: '100%', minHeight: 40, background: '#fafafa', border: `1px solid ${C.border}`,
   borderRadius: 10, padding: '8px 12px', fontSize: 13, color: C.text1, outline: 'none',
-  fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif",
+  fontFamily: "var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif",
 }
 
 export function CrudSection({ resource, title, description, fields, emptyItem, reorderable, renderLabel, renderMeta }: CrudSectionProps) {
@@ -112,7 +112,7 @@ export function CrudSection({ resource, title, description, fields, emptyItem, r
           <h1 style={{ fontSize: 20, fontWeight: 900, color: C.text1, marginBottom: 4 }}>{title}</h1>
           <p style={{ fontSize: 13, color: C.text3 }}>{description}</p>
         </div>
-        <button onClick={() => setEditing({ ...emptyItem })} style={{ height: 40, padding: '0 18px', background: C.primary, color: W, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 900, cursor: 'pointer', fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif" }}>
+        <button onClick={() => setEditing({ ...emptyItem })} style={{ height: 40, padding: '0 18px', background: C.primary, color: W, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 900, cursor: 'pointer', fontFamily: "var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif" }}>
           + إضافة جديد
         </button>
       </div>
@@ -153,10 +153,10 @@ export function CrudSection({ resource, title, description, fields, emptyItem, r
             ))}
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
-            <button onClick={save} disabled={saving} style={{ height: 40, padding: '0 20px', background: C.primary, color: W, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 900, cursor: 'pointer', fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif" }}>
+            <button onClick={save} disabled={saving} style={{ height: 40, padding: '0 20px', background: C.primary, color: W, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 900, cursor: 'pointer', fontFamily: "var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif" }}>
               {saving ? 'جاري الحفظ...' : 'حفظ'}
             </button>
-            <button onClick={() => setEditing(null)} style={{ height: 40, padding: '0 20px', background: '#fff', color: C.text3, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif" }}>
+            <button onClick={() => setEditing(null)} style={{ height: 40, padding: '0 20px', background: '#fff', color: C.text3, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: "var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif" }}>
               إلغاء
             </button>
           </div>
@@ -180,8 +180,8 @@ export function CrudSection({ resource, title, description, fields, emptyItem, r
                 <button onClick={() => move(i, 1)} disabled={i === items.length - 1} aria-label="نقل لأسفل" className="admin-icon-btn" style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${C.border}`, background: '#fff', cursor: i === items.length - 1 ? 'default' : 'pointer', opacity: i === items.length - 1 ? 0.35 : 1 }}>↓</button>
               </div>
             )}
-            <button onClick={() => setEditing(item)} style={{ height: 30, padding: '0 12px', background: C.primaryLight, color: C.primary, border: 'none', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif" }}>تعديل</button>
-            <button onClick={() => remove(item.id)} style={{ height: 30, padding: '0 12px', background: '#FEF2F2', color: '#A32D2D', border: '1px solid #FECACA', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif" }}>حذف</button>
+            <button onClick={() => setEditing(item)} style={{ height: 30, padding: '0 12px', background: C.primaryLight, color: C.primary, border: 'none', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: "var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif" }}>تعديل</button>
+            <button onClick={() => remove(item.id)} style={{ height: 30, padding: '0 12px', background: '#FEF2F2', color: '#A32D2D', border: '1px solid #FECACA', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: "var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif" }}>حذف</button>
           </div>
         ))}
       </div>

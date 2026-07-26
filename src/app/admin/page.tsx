@@ -34,7 +34,7 @@ const NAV: { id: Tab; label: string; icon: typeof IconLayoutDashboard }[] = [
 ]
 
 const SIDEBAR_W = 220
-const FONT = "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif"
+const FONT = "var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif"
 
 function AdminShell() {
   const [tab, setTab] = useState<Tab>('dashboard')

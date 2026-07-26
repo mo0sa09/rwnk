@@ -398,6 +398,7 @@ ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS meta_title       TEXT
 ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS meta_description TEXT DEFAULT 'دليل تدريبي احترافي يحوّل عاملتك المنزلية إلى خبيرة تنظيف بمعايير الفنادق الخمس نجوم. تحميل فوري بعد الدفع.';
 ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS meta_keywords    TEXT DEFAULT 'تنظيف منزلي, تدريب عاملات, دليل تنظيف, تنظيف احترافي, رونق, الكويت';
 ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS og_image_url     TEXT;
+ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS hero_image_url   TEXT;
 
 -- 13.2 testimonials
 CREATE TABLE IF NOT EXISTS public.testimonials (

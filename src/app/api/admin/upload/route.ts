@@ -12,6 +12,7 @@ const KINDS = {
   favicon:   { bucket: 'site-assets', prefix: 'branding',  public: true,  maxMB: 1, types: ['image/png', 'image/x-icon', 'image/vnd.microsoft.icon', 'image/svg+xml'] },
   og:        { bucket: 'site-assets', prefix: 'seo',       public: true,  maxMB: 3, types: ['image/png', 'image/jpeg', 'image/webp'] },
   image:     { bucket: 'site-assets', prefix: 'content',   public: true,  maxMB: 4, types: ['image/png', 'image/jpeg', 'image/webp'] },
+  hero:      { bucket: 'site-assets', prefix: 'hero',      public: true,  maxMB: 5, types: ['image/png', 'image/jpeg', 'image/webp'] },
   'product-pdf': { bucket: 'products', prefix: 'books',    public: false, maxMB: 50, types: ['application/pdf'] },
 } as const
 type Kind = keyof typeof KINDS

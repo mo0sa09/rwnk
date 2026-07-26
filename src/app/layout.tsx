@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { tajawal } from '@/lib/font'
 import './globals.css'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://rwnk.co'
@@ -36,7 +37,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ar" dir="rtl">
+    <html lang="ar" dir="rtl" className={tajawal.variable}>
       <body>{children}</body>
     </html>
   )

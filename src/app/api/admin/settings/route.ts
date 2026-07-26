@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { requireAdmin } from '@/lib/admin-auth'
 import { getAdminDb } from '@/lib/admin-db'
 import { STORE_SETTINGS_FIELDS, pickFields } from '@/lib/admin-resources'
+import { DEFAULT_SETTINGS } from '@/lib/store-settings'
 
 export async function GET(request: NextRequest) {
   const { error } = await requireAdmin(request)
@@ -11,7 +12,10 @@ export async function GET(request: NextRequest) {
   const sb = getAdminDb()
   const { data, error: dbErr } = await sb.from('store_settings').select('*').single()
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 })
-  return NextResponse.json({ data })
+  // Columns added by later migrations (stats, hero_image_url, etc.) may not
+  // exist on the row yet if supabase/schema.sql hasn't been re-run — fall
+  // back to defaults instead of shipping `undefined` into the admin form.
+  return NextResponse.json({ data: { ...DEFAULT_SETTINGS, ...data } })
 }
 
 export async function PATCH(request: NextRequest) {

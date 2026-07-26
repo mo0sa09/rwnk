@@ -8,7 +8,7 @@ export const BG = '#F8F7FF'
 export const inp: React.CSSProperties = {
   width: '100%', height: 44, background: '#fafafa', border: `1px solid ${C.border}`,
   borderRadius: 10, padding: '0 12px', fontSize: 13, color: C.text1, outline: 'none',
-  fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif", transition: 'all .2s',
+  fontFamily: "var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif", transition: 'all .2s',
 }
 export const label: React.CSSProperties = {
   display: 'block', fontSize: 10, fontWeight: 700, color: C.text2,
@@ -61,7 +61,7 @@ export const btnPrimary = (busy: boolean): React.CSSProperties => ({
   height: 46, padding: '0 28px', background: busy ? '#8b6dd4' : C.primary, color: W,
   border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 900,
   cursor: busy ? 'wait' : 'pointer',
-  fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif",
+  fontFamily: "var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif",
   boxShadow: '0 2px 12px rgba(103,71,178,.28)',
 })
 
@@ -88,7 +88,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             display: 'flex', alignItems: 'center', gap: 8, padding: '12px 18px', borderRadius: 12,
             fontSize: 13, fontWeight: 700, boxShadow: '0 8px 24px rgba(0,0,0,.15)',
             background: t.kind === 'success' ? '#085041' : '#A32D2D', color: '#fff',
-            fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif",
+            fontFamily: "var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif",
             animation: 'fadeUp .2s ease',
           }}>
             {t.kind === 'success' ? '✓' : '✕'} {t.text}
@@ -118,7 +118,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
         }} onClick={() => setState(null)}>
           <div onClick={e => e.stopPropagation()} style={{
             background: '#fff', borderRadius: 18, padding: '24px 26px', maxWidth: 380, width: '100%',
-            boxShadow: '0 20px 60px rgba(0,0,0,.25)', fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif",
+            boxShadow: '0 20px 60px rgba(0,0,0,.25)', fontFamily: "var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif",
           }}>
             <p style={{ fontSize: 14, color: C.text1, lineHeight: 1.6, marginBottom: 20 }}>{state.message}</p>
             <div style={{ display: 'flex', gap: 8 }}>

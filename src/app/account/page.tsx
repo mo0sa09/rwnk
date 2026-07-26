@@ -33,20 +33,20 @@ export default function AccountPage() {
     catch{alert('حدث خطأ في الحفظ')}
     finally{setSaving(false)}
   }
-  if(loading) return <div style={{height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif",color:T3}}>جاري التحميل...</div>
+  if(loading) return <div style={{height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif",color:T3}}>جاري التحميل...</div>
   const name=profile?.full_name||user?.email?.split('@')[0]||'مستخدم'
-  const inp:React.CSSProperties={width:'100%',height:44,background:'#FAFAFA',border:`1px solid ${BR}`,borderRadius:10,padding:'0 12px',fontSize:13,color:T1,outline:'none',fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif"}
+  const inp:React.CSSProperties={width:'100%',height:44,background:'#FAFAFA',border:`1px solid ${BR}`,borderRadius:10,padding:'0 12px',fontSize:13,color:T1,outline:'none',fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif"}
   const focus=(e:React.FocusEvent<HTMLInputElement>)=>{e.target.style.borderColor=P;e.target.style.boxShadow='0 0 0 3px rgba(103,71,178,.1)'}
   const blur=(e:React.FocusEvent<HTMLInputElement>)=>{e.target.style.borderColor=BR;e.target.style.boxShadow='none'}
   return (
     <>
       <Navbar rightContent={
-        <div style={{display:'flex',alignItems:'center',gap:6,fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif"}}>
+        <div style={{display:'flex',alignItems:'center',gap:6,fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif"}}>
           <Link href="/library" style={{fontSize:13,color:T2,padding:'7px 14px',borderRadius:8,textDecoration:'none'}}>المكتبة</Link>
-          <button onClick={async()=>{await signOut();window.location.href='/'}} style={{fontSize:13,color:'#A32D2D',background:'none',border:'none',padding:'7px 14px',borderRadius:8,fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif",cursor:'pointer'}}>خروج</button>
+          <button onClick={async()=>{await signOut();window.location.href='/'}} style={{fontSize:13,color:'#A32D2D',background:'none',border:'none',padding:'7px 14px',borderRadius:8,fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif",cursor:'pointer'}}>خروج</button>
         </div>
       }/>
-      <main style={{minHeight:'100vh',background:'#FAFAFA',paddingTop:78,paddingBottom:48,fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif"}}>
+      <main style={{minHeight:'100vh',background:'#FAFAFA',paddingTop:78,paddingBottom:48,fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif"}}>
         <div style={{maxWidth:720,margin:'0 auto',padding:'0 24px'}}>
           <h1 style={{fontSize:26,fontWeight:900,letterSpacing:-0.7,marginBottom:4,color:T1}}>حسابي</h1>
           <p style={{fontSize:13,color:T3,marginBottom:28}}>إدارة معلوماتك وطلباتك</p>
@@ -57,7 +57,7 @@ export default function AccountPage() {
               <div style={{fontSize:13,color:T3,marginBottom:8,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{user?.email}</div>
               <span style={{fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:999,background:PL,color:P,border:'.5px solid #DDD6F0'}}>{user?.email_confirmed_at?'حساب موثّق':'⏳ في انتظار التوثيق'}</span>
             </div>
-            <button onClick={()=>setEditMode(!editMode)} style={{height:44,padding:'0 16px',background:editMode?PL:'#fff',border:`1px solid ${editMode?P:BR}`,borderRadius:9,fontSize:12,fontWeight:700,color:editMode?P:T2,cursor:'pointer',fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif",flexShrink:0}}>{editMode?'إلغاء':'تعديل'}</button>
+            <button onClick={()=>setEditMode(!editMode)} style={{height:44,padding:'0 16px',background:editMode?PL:'#fff',border:`1px solid ${editMode?P:BR}`,borderRadius:9,fontSize:12,fontWeight:700,color:editMode?P:T2,cursor:'pointer',fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif",flexShrink:0}}>{editMode?'إلغاء':'تعديل'}</button>
           </div>
           <div style={{background:'#fff',border:`1px solid ${BR}`,borderRadius:20,padding:'20px 24px',marginBottom:14}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
@@ -66,7 +66,7 @@ export default function AccountPage() {
             {editMode?<div>
               <div style={{marginBottom:12}}><label style={{display:'block',fontSize:11,fontWeight:700,color:T2,textTransform:'uppercase',letterSpacing:0.4,marginBottom:6}}>الاسم الكامل</label><input value={form.full_name} onChange={e=>setForm(f=>({...f,full_name:e.target.value}))} style={inp} onFocus={focus} onBlur={blur}/></div>
               <div style={{marginBottom:16}}><label style={{display:'block',fontSize:11,fontWeight:700,color:T2,textTransform:'uppercase',letterSpacing:0.4,marginBottom:6}}>رقم الجوال</label><input value={form.phone} dir="ltr" onChange={e=>setForm(f=>({...f,phone:e.target.value}))} placeholder="+965 XXXX XXXX" style={inp} onFocus={focus} onBlur={blur}/></div>
-              <button onClick={handleSave} disabled={saving} style={{height:44,padding:'0 24px',background:saving?'#8b6dd4':P,color:'#fff',border:'none',borderRadius:10,fontSize:14,fontWeight:900,cursor:saving?'wait':'pointer',fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif"}}>{saving?'جاري الحفظ...':'حفظ التغييرات'}</button>
+              <button onClick={handleSave} disabled={saving} style={{height:44,padding:'0 24px',background:saving?'#8b6dd4':P,color:'#fff',border:'none',borderRadius:10,fontSize:14,fontWeight:900,cursor:saving?'wait':'pointer',fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif"}}>{saving?'جاري الحفظ...':'حفظ التغييرات'}</button>
             </div>:[
               {label:'الاسم الكامل',value:profile?.full_name||'—'},{label:'البريد الإلكتروني',value:user?.email,ltr:true},
               {label:'رقم الجوال',value:profile?.phone||'—',ltr:true},{label:'الدولة',value:profile?.country==='KW'?'الكويت':profile?.country||'—'},
@@ -97,7 +97,7 @@ export default function AccountPage() {
           <div style={{background:'#FFF5F5',border:'1px solid #FECACA',borderRadius:20,padding:'18px 24px'}}>
             <div style={{fontSize:13,fontWeight:900,color:'#991B1B',marginBottom:5}}>منطقة الخطر</div>
             <p style={{fontSize:12,color:'#B91C1C',marginBottom:14,lineHeight:1.6}}>حذف الحساب سيؤدي إلى فقدان جميع مشترياتك وبياناتك بشكل نهائي.</p>
-            <button style={{height:36,padding:'0 16px',background:'#fff',border:'1px solid #FECACA',borderRadius:9,fontSize:12,fontWeight:700,color:'#991B1B',cursor:'pointer',fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif"}}>حذف الحساب نهائياً</button>
+            <button style={{height:36,padding:'0 16px',background:'#fff',border:'1px solid #FECACA',borderRadius:9,fontSize:12,fontWeight:700,color:'#991B1B',cursor:'pointer',fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif"}}>حذف الحساب نهائياً</button>
           </div>
         </div>
       </main>

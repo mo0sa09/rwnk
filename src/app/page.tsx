@@ -10,6 +10,7 @@ import {
 } from '@tabler/icons-react'
 import { getStoreSettings, splitHighlight } from '@/lib/store-settings'
 import { getTestimonials, getFaqs, getFeatures, getComparisonRows } from '@/lib/content'
+import { HeroIllustration } from '@/components/ui/HeroIllustration'
 
 const P='#6747B2',PL='#EDE8FF',PT='#26215C',T1='#1A1228',T2='#4A4060',T3='#9890AA',BR='#EDE8F5'
 
@@ -55,48 +56,78 @@ export default async function HomePage() {
   }
 
   return (
-    <div style={{fontFamily:"'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif",direction:'rtl',background:'#fff',color:T1}}>
+    <div style={{fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif",direction:'rtl',background:'#fff',color:T1}}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }} />
       <Navbar />
 
       {/* ── HERO ── */}
-      <section style={{maxWidth:720,margin:'0 auto',padding:'clamp(96px,18vw,132px) clamp(20px,6vw,40px) clamp(64px,10vw,88px)',display:'flex',flexDirection:'column',alignItems:'center',textAlign:'center'}}>
-        <div style={{display:'inline-flex',alignItems:'center',gap:6,background:PL,color:PT,fontSize:12,fontWeight:700,padding:'5px 14px',borderRadius:999,border:`0.5px solid ${BR}`,marginBottom:22}}>
-          <div style={{width:7,height:7,borderRadius:'50%',background:'#36DB9C'}} />
-          {settings.hero_badge}
-        </div>
-        <h1 style={{fontSize:'clamp(30px,7vw,50px)',fontWeight:900,lineHeight:1.15,letterSpacing:-1.5,marginBottom:18,color:T1,maxWidth:640}}>
-          {hero.pre}{hero.highlight && <span style={{color:P}}>{hero.highlight}</span>}{hero.post}
-        </h1>
-        <p style={{fontSize:16,color:T2,lineHeight:1.75,marginBottom:32,maxWidth:460}}>
-          {settings.hero_subtitle}
-        </p>
-        <Link href="/checkout" style={{background:P,color:'#fff',display:'inline-flex',alignItems:'center',gap:8,maxWidth:'100%',fontSize:'clamp(15px,3.2vw,18px)',fontWeight:900,padding:'17px clamp(24px,6vw,36px)',borderRadius:16,textDecoration:'none',boxShadow:'0 4px 20px rgba(103,71,178,.35)',letterSpacing:-0.3}}>
-          {settings.hero_cta_text} — {settings.product_price} د.ك
-        </Link>
-        <div style={{display:'flex',alignItems:'baseline',gap:8,marginTop:16}}>
-          <span style={{fontSize:15,color:T3,textDecoration:'line-through'}}>{settings.product_original_price} د.ك</span>
-          <span style={{fontSize:18,fontWeight:900,color:P}}>{settings.product_price} د.ك</span>
-          <span style={{fontSize:12,fontWeight:700,color:'#0F6E56',background:'#E1F5EE',padding:'3px 10px',borderRadius:999}}>عرض الإطلاق</span>
-        </div>
-        <div style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:T3,marginTop:14}}>
-          <IconLockLine /> تحميل فوري · دفع آمن
-        </div>
-      </section>
+      <section className="hero-grid" style={{maxWidth:1240,margin:'0 auto',padding:'clamp(96px,16vw,140px) clamp(20px,6vw,40px) clamp(56px,9vw,80px)',display:'grid',gridTemplateColumns:'1fr 1fr',gap:'clamp(36px,6vw,72px)',alignItems:'center'}}>
+        {/* RIGHT (desktop, RTL) / FIRST (mobile) — copy */}
+        <div className="hero-text-col" style={{minWidth:0}}>
+          <div style={{display:'inline-flex',alignItems:'center',gap:6,background:PL,color:PT,fontSize:12,fontWeight:700,padding:'5px 14px',borderRadius:999,border:`0.5px solid ${BR}`,marginBottom:22}}>
+            <div style={{width:7,height:7,borderRadius:'50%',background:'#36DB9C'}} />
+            {settings.hero_badge}
+          </div>
+          <h1 style={{fontSize:'clamp(30px,5.2vw,46px)',fontWeight:900,lineHeight:1.15,letterSpacing:-1.5,marginBottom:18,color:T1}}>
+            {hero.pre}{hero.highlight && <span style={{color:P}}>{hero.highlight}</span>}{hero.post}
+          </h1>
+          <p style={{fontSize:16,color:T2,lineHeight:1.75,marginBottom:32,maxWidth:460}}>
+            {settings.hero_subtitle}
+          </p>
+          <div className="hero-cta-row" style={{display:'flex',flexWrap:'wrap',alignItems:'center',gap:12,marginBottom:20}}>
+            <Link href="/checkout" style={{background:P,color:'#fff',display:'inline-flex',alignItems:'center',gap:8,fontSize:'clamp(15px,3vw,18px)',fontWeight:900,padding:'17px clamp(24px,5vw,32px)',borderRadius:16,textDecoration:'none',boxShadow:'0 4px 20px rgba(103,71,178,.35)',letterSpacing:-0.3}}>
+              {settings.hero_cta_text} — {settings.product_price} د.ك
+            </Link>
+            <Link href="#features" style={{color:P,display:'inline-flex',alignItems:'center',gap:6,fontSize:14,fontWeight:800,padding:'12px 6px',textDecoration:'none'}}>
+              شاهدي ماذا بالداخل ←
+            </Link>
+          </div>
+          <div className="hero-price-row" style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:18}}>
+            <span style={{fontSize:15,color:T3,textDecoration:'line-through'}}>{settings.product_original_price} د.ك</span>
+            <span style={{fontSize:18,fontWeight:900,color:P}}>{settings.product_price} د.ك</span>
+            <span style={{fontSize:12,fontWeight:700,color:'#0F6E56',background:'#E1F5EE',padding:'3px 10px',borderRadius:999}}>عرض الإطلاق</span>
+          </div>
+          <div className="hero-trust-row" style={{display:'flex',flexWrap:'wrap',alignItems:'center',gap:'8px 20px',fontSize:12,color:T3}}>
+            <span style={{display:'inline-flex',alignItems:'center',gap:6}}><IconLockLine /> دفع آمن 100%</span>
+            <span style={{display:'inline-flex',alignItems:'center',gap:6}}><IconBolt size={14} /> تحميل فوري بعد الدفع</span>
+            <span style={{display:'inline-flex',alignItems:'center',gap:6}}><IconShieldCheck size={14} /> حماية كاملة لبياناتك</span>
+          </div>
 
-      {/* ── STATS ── (hidden by default — toggle in Admin ▸ Content) */}
-      {settings.stats_visible && (
-        <div id="features" style={{background:'#fff',borderTop:`1px solid ${BR}`,borderBottom:`1px solid ${BR}`,padding:'clamp(20px,5vw,28px) clamp(16px,5vw,40px)'}}>
-          <div style={{maxWidth:900,margin:'0 auto',display:'flex',flexWrap:'wrap',justifyContent:'center',rowGap:16}}>
-            {settings.stats.map((s,i)=>(
-              <div key={i} style={{flex:'1 1 90px',minWidth:90,textAlign:'center',padding:'0 clamp(10px,3vw,28px)',borderLeft:i<settings.stats.length-1?`0.5px solid ${BR}`:'none'}}>
-                <div style={{fontSize:'clamp(22px,5vw,32px)',fontWeight:900,color:P,letterSpacing:-1,lineHeight:1}}>{s.value}</div>
-                <div style={{fontSize:12,color:T2,marginTop:5}}>{s.label}</div>
-              </div>
-            ))}
+          {/* Statistics — hidden by default, toggle in Admin ▸ Content */}
+          {settings.stats_visible && (
+            <div id="features" className="hero-stats-row" style={{display:'flex',flexWrap:'wrap',marginTop:32,paddingTop:24,borderTop:`1px solid ${BR}`}}>
+              {settings.stats.map((s,i)=>(
+                <div key={i} style={{flex:'1 1 90px',minWidth:90,paddingInlineStart:i<settings.stats.length-1?18:0,borderInlineStart:i<settings.stats.length-1?`0.5px solid ${BR}`:'none'}}>
+                  <div style={{fontSize:'clamp(20px,4vw,28px)',fontWeight:900,color:P,letterSpacing:-1,lineHeight:1}}>{s.value}</div>
+                  <div style={{fontSize:11,color:T2,marginTop:4}}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* LEFT (desktop, RTL) / SECOND (mobile) — premium product illustration */}
+        <div className="hero-media-col" style={{position:'relative'}}>
+          <div aria-hidden style={{position:'absolute',inset:'-8% -6%',zIndex:0,pointerEvents:'none'}}>
+            <div style={{position:'absolute',top:'4%',insetInlineStart:'2%',width:'44%',aspectRatio:'1',borderRadius:'50%',background:'radial-gradient(circle,rgba(103,71,178,.16),transparent 70%)'}} />
+            <div style={{position:'absolute',bottom:'0%',insetInlineEnd:'0%',width:'38%',aspectRatio:'1',borderRadius:'50%',background:'radial-gradient(circle,rgba(252,185,50,.18),transparent 70%)'}} />
+          </div>
+          <div className="hero-media-frame" style={{position:'relative',zIndex:1,width:'100%',aspectRatio:'4 / 3',borderRadius:28,overflow:'hidden',background:'#FAFAFA',boxShadow:'0 30px 70px -24px rgba(38,33,92,.32), 0 10px 28px -12px rgba(38,33,92,.18)'}}>
+            {settings.hero_image_url ? (
+              <Image
+                src={settings.hero_image_url}
+                alt={settings.product_name}
+                fill
+                priority
+                sizes="(max-width: 900px) 90vw, 560px"
+                style={{objectFit:'cover'}}
+              />
+            ) : (
+              <HeroIllustration />
+            )}
           </div>
         </div>
-      )}
+      </section>
 
       {/* ── PROBLEM ── */}
       <div style={{background:'#fff',borderBottom:`1px solid ${BR}`}}>

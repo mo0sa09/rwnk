@@ -2,11 +2,12 @@
 import { useState, useEffect } from 'react'
 import { C } from '@/lib/theme'
 import type { StoreSettings, StatItem } from '@/lib/store-settings'
+import { HeroImageField } from './HeroImageField'
 
 const W = '#fff'
 const inp: React.CSSProperties = {
   width: '100%', height: 42, background: '#fafafa', border: `1px solid ${C.border}`,
-  borderRadius: 10, padding: '0 12px', fontSize: 13, color: C.text1, outline: 'none', fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif",
+  borderRadius: 10, padding: '0 12px', fontSize: 13, color: C.text1, outline: 'none', fontFamily: "var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif",
 }
 const label: React.CSSProperties = { display: 'block', fontSize: 10, fontWeight: 700, color: C.text2, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 5 }
 const card: React.CSSProperties = { background: W, border: `1px solid ${C.border}`, borderRadius: 18, padding: '22px 24px', marginBottom: 16 }
@@ -80,6 +81,11 @@ export function ContentTab() {
         </div>
 
         <div style={card}>
+          <div style={cardTitle}>صورة الهيرو (Hero Image)</div>
+          <HeroImageField value={s.hero_image_url} onChange={url => set('hero_image_url', url)} />
+        </div>
+
+        <div style={card}>
           <div style={cardTitle}>قسم التسعير</div>
           <p style={{ fontSize: 11, color: C.text3, marginBottom: 12, lineHeight: 1.6 }}>
             صورة المنتج والسعر يُعدَّلان من تبويب &quot;إدارة المنتج&quot;.
@@ -145,7 +151,7 @@ export function ContentTab() {
       </div>
 
       {msg && <div style={{ margin: '14px 0', padding: '10px 16px', background: msg.startsWith('✓') ? C.secondaryBg : C.errorBg, borderRadius: 10, fontSize: 13, fontWeight: 700, color: msg.startsWith('✓') ? '#085041' : '#A32D2D' }}>{msg}</div>}
-      <button onClick={save} disabled={saving} style={{ marginTop: 14, height: 46, padding: '0 28px', background: saving ? '#8b6dd4' : C.primary, color: W, border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 900, cursor: saving ? 'wait' : 'pointer', fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif", boxShadow: '0 2px 12px rgba(103,71,178,.28)' }}>
+      <button onClick={save} disabled={saving} style={{ marginTop: 14, height: 46, padding: '0 28px', background: saving ? '#8b6dd4' : C.primary, color: W, border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 900, cursor: saving ? 'wait' : 'pointer', fontFamily: "var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif", boxShadow: '0 2px 12px rgba(103,71,178,.28)' }}>
         {saving ? 'جاري الحفظ...' : 'حفظ المحتوى'}
       </button>
     </div>

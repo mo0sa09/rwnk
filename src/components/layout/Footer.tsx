@@ -50,7 +50,7 @@ export default function Footer({ settings }: { settings?: StoreSettings }) {
   const SOCIAL = buildSocial(S)
 
   return (
-    <footer style={{ background: C.text1, color: '#fff', fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif", direction: 'rtl' }}>
+    <footer style={{ background: C.text1, color: '#fff', fontFamily: "var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif", direction: 'rtl' }}>
 
       {/* CTA Banner */}
       <div style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', padding: 'clamp(32px,7vw,52px) clamp(20px,6vw,40px)' }}>

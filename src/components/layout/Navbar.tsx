@@ -35,7 +35,7 @@ export default function Navbar({ rightContent }: NavbarProps) {
       background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)',
       borderBottom: `1px solid ${C.border}`,
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '0 36px', fontFamily: "'Th','Noto Kufi Arabic','Segoe UI',Tahoma,'Geeza Pro',Arial,serif",
+      padding: '0 36px', fontFamily: "var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif",
       direction: 'rtl',
     }}>
 
