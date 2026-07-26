@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { requireAdmin } from '@/lib/admin-auth'
 import { getAdminDb } from '@/lib/admin-db'
 import { RESOURCES, pickFields } from '@/lib/admin-resources'
@@ -33,5 +34,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const sb = getAdminDb()
   const { data, error: dbErr } = await sb.from(config.table).insert(payload).select().single()
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 })
+  revalidatePath('/')
+  revalidatePath('/faq')
   return NextResponse.json({ data })
 }

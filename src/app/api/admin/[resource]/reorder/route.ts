@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { requireAdmin } from '@/lib/admin-auth'
 import { getAdminDb } from '@/lib/admin-db'
 import { RESOURCES } from '@/lib/admin-resources'
@@ -19,5 +20,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   await Promise.all(
     orderedIds.map((id, i) => sb.from(config.table).update({ [orderColumn]: i + 1 }).eq(config.idColumn, id))
   )
+  revalidatePath('/')
+  revalidatePath('/faq')
   return NextResponse.json({ ok: true })
 }

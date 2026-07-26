@@ -378,7 +378,7 @@ ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS hero_subtitle        
 ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS hero_cta_text         TEXT DEFAULT 'اشترِ الآن';
 ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS pricing_cta_text      TEXT DEFAULT 'اشترِ الآن وحمّلي فوراً';
 ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS final_cta_title       TEXT DEFAULT 'ابدئي رحلتك نحو منزل بمستوى الفنادق اليوم';
-ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS final_cta_subtitle    TEXT DEFAULT 'انضمي إلى +500 عائلة اختارت رَوْنَق نظاماً لمنازلها';
+ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS final_cta_subtitle    TEXT DEFAULT 'ابدئي رحلتك نحو منزل بمستوى الفنادق مع رَوْنَق';
 ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS final_cta_button_text TEXT DEFAULT 'اشترِ الآن';
 ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS footer_cta_title      TEXT DEFAULT 'ابدئي بتحويل منزلك اليوم';
 ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS footer_cta_subtitle   TEXT DEFAULT 'دليل تنظيف احترافي بمعايير 5 نجوم — تحميل فوري';
@@ -390,6 +390,14 @@ ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS stats                
   {"value":"٢٤/٧","label":"وصول دائم للدليل"}
 ]'::jsonb;
 ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS testimonials_visible  BOOLEAN DEFAULT FALSE;
+
+-- 13.1b Branding + SEO — admin ▸ Website Settings ▸ Branding/SEO
+ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS logo_url         TEXT;
+ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS favicon_url      TEXT;
+ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS meta_title       TEXT DEFAULT 'رَوْنَق — دليل التنظيف الاحترافي';
+ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS meta_description TEXT DEFAULT 'دليل تدريبي احترافي يحوّل عاملتك المنزلية إلى خبيرة تنظيف بمعايير الفنادق الخمس نجوم. تحميل فوري بعد الدفع.';
+ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS meta_keywords    TEXT DEFAULT 'تنظيف منزلي, تدريب عاملات, دليل تنظيف, تنظيف احترافي, رونق, الكويت';
+ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS og_image_url     TEXT;
 
 -- 13.2 testimonials
 CREATE TABLE IF NOT EXISTS public.testimonials (

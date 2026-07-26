@@ -40,6 +40,7 @@ export const STORE_SETTINGS_FIELDS = [
   'final_cta_title', 'final_cta_subtitle', 'final_cta_button_text',
   'footer_cta_title', 'footer_cta_subtitle',
   'stats_visible', 'stats', 'testimonials_visible',
+  'logo_url', 'favicon_url', 'meta_title', 'meta_description', 'meta_keywords', 'og_image_url',
 ]
 
 export function pickFields<T extends Record<string, unknown>>(body: T, fields: string[]): Partial<T> {

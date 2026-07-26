@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { requireAdmin } from '@/lib/admin-auth'
 import { getAdminDb } from '@/lib/admin-db'
 import { RESOURCES, pickFields } from '@/lib/admin-resources'
+
+function revalidateFor(resource: string, id: string) {
+  revalidatePath('/')
+  revalidatePath('/faq')
+  if (resource === 'pages' && ['about', 'terms', 'privacy', 'refund'].includes(id)) revalidatePath(`/${id}`)
+}
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ resource: string; id: string }> }) {
   const { resource, id } = await params
@@ -17,6 +24,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const sb = getAdminDb()
   const { data, error: dbErr } = await sb.from(config.table).update(payload).eq(config.idColumn, id).select().single()
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 })
+  revalidateFor(resource, id)
   return NextResponse.json({ data })
 }
 
@@ -31,5 +39,6 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   const sb = getAdminDb()
   const { error: dbErr } = await sb.from(config.table).delete().eq(config.idColumn, id)
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 })
+  revalidateFor(resource, id)
   return NextResponse.json({ ok: true })
 }

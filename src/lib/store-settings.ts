@@ -34,6 +34,14 @@ export interface StoreSettings {
   stats_visible:           boolean
   stats:                   StatItem[]
   testimonials_visible:    boolean
+
+  // Branding + SEO — editable from Admin ▸ Website Settings
+  logo_url:         string | null
+  favicon_url:      string | null
+  meta_title:       string
+  meta_description: string
+  meta_keywords:    string
+  og_image_url:     string | null
 }
 
 export const DEFAULT_SETTINGS: StoreSettings = {
@@ -71,12 +79,22 @@ export const DEFAULT_SETTINGS: StoreSettings = {
     { value: '٢٤/٧', label: 'وصول دائم للدليل' },
   ],
   testimonials_visible: false,
+
+  logo_url:         null,
+  favicon_url:      null,
+  meta_title:       'رَوْنَق — دليل التنظيف الاحترافي',
+  meta_description: 'دليل تدريبي احترافي يحوّل عاملتك المنزلية إلى خبيرة تنظيف بمعايير الفنادق الخمس نجوم. تحميل فوري بعد الدفع.',
+  meta_keywords:    'تنظيف منزلي, تدريب عاملات, دليل تنظيف, تنظيف احترافي, رونق, الكويت',
+  og_image_url:     null,
 }
 
-let _cache: StoreSettings | null = null
-
+// No module-level cache here on purpose: this used to memoize the result
+// for the lifetime of the server process, so an admin edit in
+// /api/admin/settings wouldn't show up on the public site until the next
+// cold start — the opposite of "updates instantly from dashboard". Next's
+// own per-request rendering plus revalidatePath() (called after every
+// settings write) is what makes this fast/fresh instead.
 export async function getStoreSettings(): Promise<StoreSettings> {
-  if (_cache) return _cache
   try {
     const { createClient } = await import('@supabase/supabase-js')
     const sb = createClient(
@@ -84,12 +102,10 @@ export async function getStoreSettings(): Promise<StoreSettings> {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
     ) as any
     const { data } = await sb.from('store_settings').select('*').single()
-    if (data) { _cache = { ...DEFAULT_SETTINGS, ...data }; return _cache! }
+    if (data) return { ...DEFAULT_SETTINGS, ...data }
   } catch {}
   return DEFAULT_SETTINGS
 }
-
-export function clearSettingsCache() { _cache = null }
 
 // Parses "some *highlighted* text" into plain segments + a marked segment,
 // so admin-edited copy can keep the accent-colored word without hardcoding structure.

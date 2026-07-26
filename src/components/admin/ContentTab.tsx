@@ -80,12 +80,11 @@ export function ContentTab() {
         </div>
 
         <div style={card}>
-          <div style={cardTitle}>صورة المنتج</div>
-          <div style={{ marginBottom: 12 }}>
-            <label style={label}>رابط صورة المنتج (اختياري — تظهر بدلاً من الغلاف الافتراضي)</label>
-            <input style={inp} dir="ltr" value={s.product_image_url ?? ''} onChange={e => set('product_image_url', e.target.value || null)} placeholder="https://..." />
-          </div>
-          <div style={{ marginBottom: 12 }}>
+          <div style={cardTitle}>قسم التسعير</div>
+          <p style={{ fontSize: 11, color: C.text3, marginBottom: 12, lineHeight: 1.6 }}>
+            صورة المنتج والسعر يُعدَّلان من تبويب &quot;إدارة المنتج&quot;.
+          </p>
+          <div>
             <label style={label}>نص زر صفحة التسعير</label>
             <input style={inp} value={s.pricing_cta_text} onChange={e => set('pricing_cta_text', e.target.value)} />
           </div>
