@@ -88,15 +88,22 @@ table { max-width: 100%; }
 }
 /* Hero — two-column on desktop (RTL: DOM-first text column renders on the
    right, DOM-second media column renders on the left, with no explicit
-   per-item direction overrides needed). Stacks to text-first/image-below,
-   centered, below 900px so it works cleanly through tablet-portrait and
-   every phone width down to 320px. */
+   per-item direction overrides needed). Stacks below 900px (tablet-portrait
+   down to the smallest phones) — desktop layout above 900px is untouched. */
 @media (max-width: 900px) {
   .hero-grid { grid-template-columns: 1fr !important; gap: 40px !important; }
   .hero-text-col { text-align: center; }
   .hero-text-col p { margin-left: auto; margin-right: auto; }
   .hero-cta-row, .hero-price-row, .hero-trust-row, .hero-stats-row { justify-content: center !important; }
   .hero-media-col { max-width: 440px; margin: 0 auto; width: 100%; }
+}
+
+/* True mobile (phones) — the image leads, text follows below it. Reordered
+   visually via grid `order` only; DOM order is untouched so the >900px
+   desktop RTL column placement (which relies on source order) still works. */
+@media (max-width: 640px) {
+  .hero-grid { gap: 44px !important; }
+  .hero-media-col { order: -1; }
 }
 
 /* ── Navbar — hamburger menu below tablet width ── */
