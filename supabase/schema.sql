@@ -76,9 +76,15 @@ CREATE TABLE IF NOT EXISTS public.purchases (
   downloads_limit  INTEGER DEFAULT 5,
   downloads_used   INTEGER DEFAULT 0,
   account_created  BOOLEAN DEFAULT FALSE,
+  paid_at             TIMESTAMPTZ,      -- set only when the gateway confirms InvoiceStatus/charge = paid
+  transaction_details JSONB,            -- raw GetPaymentStatus/charge response, kept for support/audit
   created_at       TIMESTAMPTZ DEFAULT NOW(),
   updated_at       TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Backfill for databases created before paid_at/transaction_details existed.
+ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ;
+ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS transaction_details JSONB;
 
 -- Auto invoice number
 CREATE OR REPLACE FUNCTION public.generate_invoice_number()

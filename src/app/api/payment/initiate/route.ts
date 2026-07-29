@@ -91,24 +91,41 @@ export async function POST(request: NextRequest) {
   const { data: purchase, error: findErr } = await sb.from('purchases')
     .select('id,email,amount,status').eq('id', purchaseId).single()
 
-  if (findErr || !purchase) return NextResponse.json({ error: 'Purchase not found' }, { status: 404 })
-  if (purchase.status !== 'pending') return NextResponse.json({ error: 'Purchase is not pending' }, { status: 409 })
+  if (findErr || !purchase) {
+    console.error(`[payment/initiate] purchase ${purchaseId} not found: ${findErr?.message ?? 'no row'}`)
+    return NextResponse.json({ error: 'Purchase not found' }, { status: 404 })
+  }
+  if (purchase.status !== 'pending') {
+    console.warn(`[payment/initiate] purchase ${purchaseId} is not pending (status=${purchase.status}) — refusing to re-initiate`)
+    return NextResponse.json({ error: 'Purchase is not pending' }, { status: 409 })
+  }
 
   const appUrl     = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
   const gateway    = (process.env.PAYMENT_GATEWAY ?? 'myfatoorah') as 'myfatoorah' | 'tap'
   const callbackUrl = `${appUrl}/api/payment/callback?purchaseId=${purchaseId}&gateway=${gateway}`
   const errorUrl    = `${appUrl}/checkout?error=payment_failed&purchaseId=${purchaseId}`
 
+  console.log(`[payment/initiate] starting ${gateway} payment — purchase=${purchaseId} email=${purchase.email} amount=${purchase.amount}`)
+
   try {
     const result = gateway === 'tap'
       ? await initTap({ email: purchase.email, amount: purchase.amount, purchaseId, callbackUrl })
       : await initMyFatoorah({ email: purchase.email, amount: purchase.amount, purchaseId, callbackUrl, errorUrl })
 
-    await sb.from('purchases').update({ payment_ref: result.invoiceId }).eq('id', purchaseId)
+    // This is the reference the callback later verifies against — stored
+    // here, server-side, BEFORE the customer ever reaches the gateway, so
+    // /api/payment/callback never has to trust a gateway-redirect query
+    // param to know which invoice/charge belongs to this purchase.
+    const { error: refErr } = await sb.from('purchases').update({ payment_ref: result.invoiceId }).eq('id', purchaseId)
+    if (refErr) {
+      console.error(`[payment/initiate] failed to store payment_ref for purchase ${purchaseId}: ${refErr.message}`)
+    } else {
+      console.log(`[payment/initiate] purchase ${purchaseId} → payment_ref=${result.invoiceId}, redirecting customer to gateway`)
+    }
 
     return NextResponse.json({ paymentUrl: result.paymentUrl, invoiceId: result.invoiceId })
   } catch (err: any) {
-    console.error('[payment/initiate]', err.message)
+    console.error(`[payment/initiate] gateway error for purchase ${purchaseId}: ${err.message}`)
     return NextResponse.json({ error: err.message ?? 'Gateway error' }, { status: 500 })
   }
 }

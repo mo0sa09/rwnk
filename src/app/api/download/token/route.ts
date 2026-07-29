@@ -42,12 +42,20 @@ export async function POST(request: NextRequest) {
     .select('id,user_id,status,downloads_limit,downloads_used')
     .eq('id', purchaseId).single()
 
-  if (error || !purchase) return NextResponse.json({ error: 'الطلب غير موجود' }, { status: 404 })
-  if (purchase.status !== 'completed') return NextResponse.json({ error: 'لم تكتمل عملية الدفع لهذا الطلب' }, { status: 403 })
+  if (error || !purchase) {
+    console.error(`[download/token] purchase ${purchaseId} not found: ${error?.message ?? 'no row'}`)
+    return NextResponse.json({ error: 'الطلب غير موجود' }, { status: 404 })
+  }
+  if (purchase.status !== 'completed') {
+    console.warn(`[download/token] purchase ${purchaseId} is not completed (status=${purchase.status}) — refusing token`)
+    return NextResponse.json({ error: 'لم تكتمل عملية الدفع لهذا الطلب' }, { status: 403 })
+  }
   if (sessionUserId && purchase.user_id && purchase.user_id !== sessionUserId) {
+    console.error(`[download/token] session user ${sessionUserId} does not own purchase ${purchaseId} (owner=${purchase.user_id})`)
     return NextResponse.json({ error: 'غير مصرح لك بتحميل هذا الطلب' }, { status: 403 })
   }
   if ((purchase.downloads_used ?? 0) >= (purchase.downloads_limit ?? 0)) {
+    console.warn(`[download/token] purchase ${purchaseId} hit its download limit (${purchase.downloads_used}/${purchase.downloads_limit})`)
     return NextResponse.json({ error: 'LIMIT_REACHED' }, { status: 403 })
   }
 
@@ -56,9 +64,10 @@ export async function POST(request: NextRequest) {
     .select('token').single()
 
   if (tokenErr || !tokenRow) {
-    console.error('[download/token]', tokenErr?.message)
+    console.error(`[download/token] failed to create token for purchase ${purchaseId}: ${tokenErr?.message ?? 'insert returned no row'}`)
     return NextResponse.json({ error: 'تعذّر إنشاء رابط التحميل' }, { status: 500 })
   }
 
+  console.log(`[download/token] issued token for purchase ${purchaseId} (user=${sessionUserId ?? purchase.user_id ?? 'guest'})`)
   return NextResponse.json({ token: tokenRow.token })
 }

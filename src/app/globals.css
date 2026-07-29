@@ -102,8 +102,8 @@ table { max-width: 100%; }
    visually via grid `order` only; DOM order is untouched so the >900px
    desktop RTL column placement (which relies on source order) still works. */
 @media (max-width: 640px) {
-  .hero-grid { gap: 44px !important; }
-  .hero-media-col { order: -1; }
+  .hero-grid { gap: 52px !important; overflow-x: hidden; }
+  .hero-media-col { order: -1; max-width: 380px; }
 }
 
 /* ── Navbar — hamburger menu below tablet width ── */

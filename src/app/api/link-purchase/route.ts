@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
 
   const { data: userRes, error: userErr } = await sb.auth.admin.getUserById(userId)
   if (userErr || !userRes?.user || userRes.user.email?.toLowerCase() !== String(email).toLowerCase()) {
+    console.error(`[link-purchase] auth user ${userId} could not be verified against email ${email}: ${userErr?.message ?? 'email mismatch'}`)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
@@ -35,11 +36,16 @@ export async function POST(request: NextRequest) {
   const purchaseEmail = purchase?.email?.toLowerCase()
   const guestEmail = purchase?.guest_email?.toLowerCase()
   if (!purchase || (purchaseEmail !== String(email).toLowerCase() && guestEmail !== String(email).toLowerCase())) {
+    console.error(`[link-purchase] purchase ${purchaseId} email does not match ${email} (purchase=${purchaseEmail}, guest=${guestEmail})`)
     return NextResponse.json({ error: 'Purchase email mismatch' }, { status: 403 })
   }
 
   const { error: updateErr } = await sb.from('purchases').update({ user_id: userId, account_created: true }).eq('id', purchaseId)
-  if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 })
+  if (updateErr) {
+    console.error(`[link-purchase] failed to link purchase ${purchaseId} to user ${userId}: ${updateErr.message}`)
+    return NextResponse.json({ error: updateErr.message }, { status: 500 })
+  }
 
+  console.log(`[link-purchase] purchase ${purchaseId} linked to new account ${userId} — will now appear in their library`)
   return NextResponse.json({ ok: true })
 }

@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
   const guestEmail = purchase?.guest_email?.toLowerCase()
   const targetEmail = String(email).toLowerCase()
   if (!purchase || (purchaseEmail !== targetEmail && guestEmail !== targetEmail)) {
+    console.error(`[link-existing-purchase] purchase ${purchaseId} email does not match ${targetEmail} (purchase=${purchaseEmail}, guest=${guestEmail})`)
     return NextResponse.json({ error: 'Purchase email mismatch' }, { status: 403 })
   }
 
@@ -46,12 +47,19 @@ export async function POST(request: NextRequest) {
     if (data.users.length < 1000) break // last page
   }
 
-  if (!matchedUserId) return NextResponse.json({ error: 'No account found for this email' }, { status: 404 })
+  if (!matchedUserId) {
+    console.error(`[link-existing-purchase] no existing auth account found for ${targetEmail} — purchase ${purchaseId} left unlinked`)
+    return NextResponse.json({ error: 'No account found for this email' }, { status: 404 })
+  }
 
   const { error: updateErr } = await sb.from('purchases')
     .update({ user_id: matchedUserId, account_created: true })
     .eq('id', purchaseId)
-  if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 })
+  if (updateErr) {
+    console.error(`[link-existing-purchase] failed to link purchase ${purchaseId} to existing user ${matchedUserId}: ${updateErr.message}`)
+    return NextResponse.json({ error: updateErr.message }, { status: 500 })
+  }
 
+  console.log(`[link-existing-purchase] purchase ${purchaseId} linked to existing account ${matchedUserId} (repeat customer) — will now appear in their library`)
   return NextResponse.json({ ok: true })
 }

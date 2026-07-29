@@ -43,9 +43,11 @@ export async function POST(request: NextRequest) {
   }).select('id,amount,currency').single()
 
   if (insertErr || !purchase) {
-    console.error('[checkout]', insertErr?.message)
+    console.error(`[checkout] failed to create pending purchase for ${email}: ${insertErr?.message ?? 'insert returned no row'}`)
     return NextResponse.json({ error: 'تعذّر إنشاء الطلب، حاولي مرة أخرى' }, { status: 500 })
   }
+
+  console.log(`[checkout] pending purchase created — id=${purchase.id} email=${email} amount=${purchase.amount} ${purchase.currency} method=${paymentMethod}`)
 
   return NextResponse.json({ purchaseId: purchase.id, amount: purchase.amount, currency: purchase.currency })
 }
