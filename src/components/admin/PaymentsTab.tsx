@@ -74,7 +74,7 @@ export function PaymentsTab() {
               <div className="admin-table-wrap">
                 <div className="admin-table-min">
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr 1fr 0.8fr 0.7fr', gap: 8, padding: '7px 12px' }}>
-                    {['المرجع', 'العميل', 'التاريخ', 'الطريقة', 'المبلغ'].map(h => <div key={h} style={{ fontSize: 10, fontWeight: 700, color: C.text3, textTransform: 'uppercase', letterSpacing: 0.3 }}>{h}</div>)}
+                    {['المرجع', 'العميل', 'التاريخ', 'الطريقة', 'المبلغ'].map(h => <div key={h} style={{ fontSize: 10, fontWeight: 700, color: C.text3, textTransform: 'uppercase' }}>{h}</div>)}
                   </div>
                   {payments.map(p => (
                     <div key={p.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr 1fr 0.8fr 0.7fr', gap: 8, padding: '12px', borderTop: `1px solid ${C.border}`, alignItems: 'center' }}>

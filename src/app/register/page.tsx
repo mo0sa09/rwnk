@@ -67,18 +67,18 @@ export default function RegisterPage() {
             <span style={{fontSize:12,color:T3}}>لديك حساب؟ <Link href="/login" style={{color:P,fontWeight:700,textDecoration:'none'}}>دخول</Link></span>
           </div>
           <div style={{width:38,height:38,borderRadius:10,background:P,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:900,color:'#fff',marginBottom:14,boxShadow:'0 4px 14px rgba(103,71,178,.3)'}}>ر</div>
-          <h1 style={{fontSize:22,fontWeight:900,color:T1,letterSpacing:-0.7,marginBottom:4}}>إنشاء حساب جديد</h1>
+          <h1 style={{fontSize:22,fontWeight:900,color:T1,marginBottom:4}}>إنشاء حساب جديد</h1>
           <p style={{fontSize:12,color:T3,marginBottom:18}}>احفظي وصولك لدليل رَوْنَق ومكتبتك</p>
           {error&&<p role="alert" style={{fontSize:12,color:'#A32D2D',marginBottom:12,padding:'8px 12px',background:'#FEF2F2',borderRadius:8}}>{error}</p>}
           {success&&<p role="status" style={{fontSize:12,color:'#085041',marginBottom:12,padding:'10px 12px',background:'#E1F5EE',borderRadius:8,lineHeight:1.6}}>{success}</p>}
           {!success&&<form onSubmit={handle}>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
-              <div><label htmlFor="reg-firstName" style={{display:'block',fontSize:10,fontWeight:700,color:T2,textTransform:'uppercase',letterSpacing:0.4,marginBottom:5}}>الاسم الأول *</label><input id="reg-firstName" autoComplete="given-name" required placeholder="نورة" value={form.firstName} onChange={set('firstName')} onFocus={focus} onBlur={blur} style={inp}/></div>
-              <div><label htmlFor="reg-lastName" style={{display:'block',fontSize:10,fontWeight:700,color:T2,textTransform:'uppercase',letterSpacing:0.4,marginBottom:5}}>الاسم الأخير</label><input id="reg-lastName" autoComplete="family-name" placeholder="العنزي" value={form.lastName} onChange={set('lastName')} onFocus={focus} onBlur={blur} style={inp}/></div>
+              <div><label htmlFor="reg-firstName" style={{display:'block',fontSize:10,fontWeight:700,color:T2,textTransform:'uppercase',marginBottom:5}}>الاسم الأول *</label><input id="reg-firstName" autoComplete="given-name" required placeholder="نورة" value={form.firstName} onChange={set('firstName')} onFocus={focus} onBlur={blur} style={inp}/></div>
+              <div><label htmlFor="reg-lastName" style={{display:'block',fontSize:10,fontWeight:700,color:T2,textTransform:'uppercase',marginBottom:5}}>الاسم الأخير</label><input id="reg-lastName" autoComplete="family-name" placeholder="العنزي" value={form.lastName} onChange={set('lastName')} onFocus={focus} onBlur={blur} style={inp}/></div>
             </div>
             {[{k:'email',l:'البريد الإلكتروني *',t:'email',ph:'example@email.com',ltr:true,ac:'email'},{k:'phone',l:'الجوال',t:'tel',ph:'+965 XXXX XXXX',ltr:true,ac:'tel'},{k:'password',l:'كلمة المرور *',t:'password',ph:'8 أحرف على الأقل',ltr:true,ac:'new-password'}].map(f=>(
               <div key={f.k} style={{marginBottom:10}}>
-                <label htmlFor={`reg-${f.k}`} style={{display:'block',fontSize:10,fontWeight:700,color:T2,textTransform:'uppercase',letterSpacing:0.4,marginBottom:5}}>{f.l}</label>
+                <label htmlFor={`reg-${f.k}`} style={{display:'block',fontSize:10,fontWeight:700,color:T2,textTransform:'uppercase',marginBottom:5}}>{f.l}</label>
                 <input id={`reg-${f.k}`} type={f.t} autoComplete={f.ac} required={f.k!=='phone'} placeholder={f.ph} dir={f.ltr?'ltr':'rtl'} value={form[f.k as keyof typeof form]} onChange={set(f.k)} onFocus={focus} onBlur={blur} style={inp}/>
               </div>
             ))}

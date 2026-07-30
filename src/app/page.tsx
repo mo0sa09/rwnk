@@ -68,14 +68,14 @@ export default async function HomePage() {
             <div style={{width:7,height:7,borderRadius:'50%',background:'#36DB9C'}} />
             {settings.hero_badge}
           </div>
-          <h1 style={{fontSize:'clamp(30px,5.2vw,46px)',fontWeight:900,lineHeight:1.15,letterSpacing:-1.5,marginBottom:18,color:T1}}>
+          <h1 style={{fontSize:'clamp(30px,5.2vw,46px)',fontWeight:900,lineHeight:1.15,marginBottom:18,color:T1}}>
             {hero.pre}{hero.highlight && <span style={{color:P}}>{hero.highlight}</span>}{hero.post}
           </h1>
           <p style={{fontSize:16,color:T2,lineHeight:1.75,marginBottom:32,maxWidth:460}}>
             {settings.hero_subtitle}
           </p>
           <div className="hero-cta-row" style={{display:'flex',flexWrap:'wrap',alignItems:'center',gap:12,marginBottom:20}}>
-            <Link href="/checkout" style={{background:P,color:'#fff',display:'inline-flex',alignItems:'center',gap:8,fontSize:'clamp(15px,3vw,18px)',fontWeight:900,padding:'17px clamp(24px,5vw,32px)',borderRadius:16,textDecoration:'none',boxShadow:'0 4px 20px rgba(103,71,178,.35)',letterSpacing:-0.3}}>
+            <Link href="/checkout" style={{background:P,color:'#fff',display:'inline-flex',alignItems:'center',gap:8,fontSize:'clamp(15px,3vw,18px)',fontWeight:900,padding:'17px clamp(24px,5vw,32px)',borderRadius:16,textDecoration:'none',boxShadow:'0 4px 20px rgba(103,71,178,.35)'}}>
               {settings.hero_cta_text} — {settings.product_price} د.ك
             </Link>
             <Link href="#features" style={{color:P,display:'inline-flex',alignItems:'center',gap:6,fontSize:14,fontWeight:800,padding:'12px 6px',textDecoration:'none'}}>
@@ -132,8 +132,8 @@ export default async function HomePage() {
       {/* ── PROBLEM ── */}
       <div style={{background:'#fff',borderBottom:`1px solid ${BR}`}}>
         <div style={{maxWidth:900,margin:'0 auto',padding:'clamp(48px,9vw,72px) clamp(20px,6vw,40px)'}}>
-          <div style={{fontSize:11,fontWeight:900,color:P,textTransform:'uppercase',letterSpacing:2,marginBottom:8}}>المشكلة</div>
-          <h2 style={{fontSize:'clamp(22px,4.5vw,30px)',fontWeight:900,letterSpacing:-0.8,marginBottom:8}}>هل تعاني من هذه المشاكل؟</h2>
+          <div style={{fontSize:11,fontWeight:900,color:P,textTransform:'uppercase',marginBottom:8}}>المشكلة</div>
+          <h2 style={{fontSize:'clamp(22px,4.5vw,30px)',fontWeight:900,marginBottom:8}}>هل تعاني من هذه المشاكل؟</h2>
           <p style={{fontSize:15,color:T2,marginBottom:32}}>أغلب أصحاب المنازل يواجهون نفس التحديات كل أسبوع.</p>
           <div className="grid-2" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
             {[
@@ -161,8 +161,8 @@ export default async function HomePage() {
 
       {/* ── SOLUTION ── */}
       <div id="features" style={{maxWidth:900,margin:'0 auto',padding:'clamp(48px,9vw,72px) clamp(20px,6vw,40px)'}}>
-        <div style={{fontSize:11,fontWeight:900,color:P,textTransform:'uppercase',letterSpacing:2,marginBottom:8}}>الحل</div>
-        <h2 style={{fontSize:'clamp(22px,4.5vw,30px)',fontWeight:900,letterSpacing:-0.8,marginBottom:8}}>رَوْنَق — النظام الذي كنتِ تبحثين عنه</h2>
+        <div style={{fontSize:11,fontWeight:900,color:P,textTransform:'uppercase',marginBottom:8}}>الحل</div>
+        <h2 style={{fontSize:'clamp(22px,4.5vw,30px)',fontWeight:900,marginBottom:8}}>رَوْنَق — النظام الذي كنتِ تبحثين عنه</h2>
         <p style={{fontSize:15,color:T2,marginBottom:32}}>دليل تدريبي رقمي مبني على معايير الفنادق الفاخرة.</p>
         <div className="grid-2" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
           {features.map((f)=>{
@@ -183,8 +183,8 @@ export default async function HomePage() {
       {/* ── STEPS ── */}
       <div id="steps" style={{background:'#FAFAFA',borderTop:`1px solid ${BR}`,borderBottom:`1px solid ${BR}`}}>
         <div style={{maxWidth:900,margin:'0 auto',padding:'clamp(48px,9vw,72px) clamp(20px,6vw,40px)'}}>
-          <div style={{fontSize:11,fontWeight:900,color:P,textTransform:'uppercase',letterSpacing:2,marginBottom:8}}>كيف تعمل</div>
-          <h2 style={{fontSize:'clamp(22px,4.5vw,30px)',fontWeight:900,letterSpacing:-0.8,marginBottom:36}}>3 خطوات وتنتهي</h2>
+          <div style={{fontSize:11,fontWeight:900,color:P,textTransform:'uppercase',marginBottom:8}}>كيف تعمل</div>
+          <h2 style={{fontSize:'clamp(22px,4.5vw,30px)',fontWeight:900,marginBottom:36}}>3 خطوات وتنتهي</h2>
           <div className="grid-3" style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:20}}>
             {[
               {n:'١',title:'اشترِ الدليل',desc:'ادفع مرة واحدة وحمّلي الكتاب فوراً على جهازك'},
@@ -205,8 +205,8 @@ export default async function HomePage() {
       {settings.testimonials_visible && (
         <div style={{background:'#fff',borderBottom:`1px solid ${BR}`}}>
           <div style={{maxWidth:900,margin:'0 auto',padding:'clamp(48px,9vw,72px) clamp(20px,6vw,40px)'}}>
-            <div style={{fontSize:11,fontWeight:900,color:P,textTransform:'uppercase',letterSpacing:2,marginBottom:8}}>الشهادات</div>
-            <h2 style={{fontSize:'clamp(22px,4.5vw,30px)',fontWeight:900,letterSpacing:-0.8,marginBottom:32}}>ماذا قال من جرّب رَوْنَق؟</h2>
+            <div style={{fontSize:11,fontWeight:900,color:P,textTransform:'uppercase',marginBottom:8}}>الشهادات</div>
+            <h2 style={{fontSize:'clamp(22px,4.5vw,30px)',fontWeight:900,marginBottom:32}}>ماذا قال من جرّب رَوْنَق؟</h2>
             <div className="grid-3" style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14}}>
               {testimonials.map((t)=>(
                 <div key={t.id} style={{background:'#fff',border:`0.5px solid ${BR}`,borderRadius:16,padding:22}}>
@@ -237,7 +237,7 @@ export default async function HomePage() {
       {/* ── COMPARE ── */}
       <div id="compare" style={{background:'#FAFAFA',borderBottom:`1px solid ${BR}`}}>
         <div style={{maxWidth:900,margin:'0 auto',padding:'clamp(48px,9vw,72px) clamp(20px,6vw,40px)'}}>
-          <h2 style={{fontSize:'clamp(22px,4.5vw,30px)',fontWeight:900,letterSpacing:-0.8,marginBottom:36}}>لماذا رَوْنَق وليس غيره؟</h2>
+          <h2 style={{fontSize:'clamp(22px,4.5vw,30px)',fontWeight:900,marginBottom:36}}>لماذا رَوْنَق وليس غيره؟</h2>
           <div style={{background:'#fff',border:`1px solid ${BR}`,borderRadius:20,overflow:'hidden'}}>
             <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr',background:'#FAFAFA',borderBottom:`1px solid ${BR}`}}>
               <div style={{padding:'14px clamp(12px,4vw,24px)',fontSize:12,fontWeight:900,color:T3}}>الميزة</div>
@@ -261,13 +261,13 @@ export default async function HomePage() {
 
       {/* ── PRICING ── */}
       <div id="pricing" style={{maxWidth:900,margin:'0 auto',padding:'clamp(48px,9vw,72px) clamp(20px,6vw,40px)',textAlign:'center'}}>
-        <h2 style={{fontSize:'clamp(22px,4.5vw,30px)',fontWeight:900,letterSpacing:-0.8,marginBottom:6}}>استثمار واحد — نتائج مدى الحياة</h2>
+        <h2 style={{fontSize:'clamp(22px,4.5vw,30px)',fontWeight:900,marginBottom:6}}>استثمار واحد — نتائج مدى الحياة</h2>
         <p style={{fontSize:15,color:T2,marginBottom:36}}>سعر أقل من جلسة تنظيف احترافية واحدة</p>
         <div style={{maxWidth:380,margin:'0 auto',background:'#fff',border:`2px solid ${P}`,borderRadius:24,padding:'clamp(28px,7vw,36px) clamp(22px,6vw,32px)',position:'relative'}}>
           <div style={{position:'absolute',top:18,left:18,background:'#E1F5EE',color:'#0F6E56',fontSize:11,fontWeight:900,padding:'4px 14px',borderRadius:999}}>عرض الإطلاق</div>
           <div style={{fontSize:15,color:T3,textDecoration:'line-through',marginBottom:4}}>{settings.product_original_price} دينار</div>
           <div style={{fontSize:'clamp(38px,10vw,52px)',fontWeight:900,color:P,letterSpacing:-2,lineHeight:1,marginBottom:4}}>
-            {settings.product_price} <span style={{fontSize:18,fontWeight:400,color:T3}}>دينار كويتي</span>
+            {settings.product_price} <span style={{fontSize:18,fontWeight:400,color:T3,letterSpacing:'normal'}}>دينار كويتي</span>
           </div>
           <div style={{fontSize:13,color:T3,marginBottom:24}}>دفعة واحدة · بدون اشتراك شهري</div>
           {['الكتاب الرقمي كامل (PDF)','قوائم التفتيش للطباعة','الجداول اليومية والأسبوعية','تحديثات مجانية مدى الحياة','تحميل فوري بعد الدفع'].map((f,i)=>(
@@ -284,7 +284,7 @@ export default async function HomePage() {
       {/* ── FAQ ── */}
       <div id="faq" style={{background:'#FAFAFA',borderTop:`1px solid ${BR}`}}>
         <div style={{maxWidth:900,margin:'0 auto',padding:'clamp(48px,9vw,72px) clamp(20px,6vw,40px)'}}>
-          <h2 style={{fontSize:'clamp(22px,4.5vw,30px)',fontWeight:900,letterSpacing:-0.8,marginBottom:32}}>أسئلة شائعة</h2>
+          <h2 style={{fontSize:'clamp(22px,4.5vw,30px)',fontWeight:900,marginBottom:32}}>أسئلة شائعة</h2>
           <div style={{display:'flex',flexDirection:'column',gap:10,maxWidth:640}}>
             {faqs.slice(0,4).map((faq)=>(
               <div key={faq.id} style={{background:'#fff',border:`1px solid ${BR}`,borderRadius:14,padding:'16px 20px'}}>
@@ -303,9 +303,9 @@ export default async function HomePage() {
 
       {/* ── FINAL CTA ── */}
       <section style={{background:P,padding:'clamp(56px,10vw,80px) clamp(20px,6vw,40px)',textAlign:'center'}}>
-        <h2 style={{fontSize:'clamp(24px,5vw,34px)',fontWeight:900,color:'#fff',letterSpacing:-0.8,marginBottom:10}}>{settings.final_cta_title}</h2>
+        <h2 style={{fontSize:'clamp(24px,5vw,34px)',fontWeight:900,color:'#fff',marginBottom:10}}>{settings.final_cta_title}</h2>
         <p style={{fontSize:16,color:'rgba(255,255,255,0.8)',marginBottom:32}}>{settings.final_cta_subtitle}</p>
-        <Link href="/checkout" style={{background:'#fff',color:P,display:'inline-block',maxWidth:'100%',fontSize:'clamp(14px,3.5vw,18px)',fontWeight:900,padding:'16px clamp(20px,6vw,40px)',borderRadius:16,textDecoration:'none',letterSpacing:-0.3}}>
+        <Link href="/checkout" style={{background:'#fff',color:P,display:'inline-block',maxWidth:'100%',fontSize:'clamp(14px,3.5vw,18px)',fontWeight:900,padding:'16px clamp(20px,6vw,40px)',borderRadius:16,textDecoration:'none'}}>
           {settings.final_cta_button_text} — {settings.product_price} د.ك
         </Link>
         <div style={{display:'flex',gap:24,justifyContent:'center',marginTop:16,flexWrap:'wrap'}}>

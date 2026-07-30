@@ -120,12 +120,12 @@ export default function LoginPage() {
           <div style={{ width:38, height:38, borderRadius:10, background:C.primary, display:'flex', alignItems:'center', justifyContent:'center', marginBottom:18, boxShadow:'0 4px 14px rgba(103,71,178,.3)' }}>
             <Image src="/logo-icon.png" alt="" width={18} height={21} style={{ width:18, height:21, objectFit:'contain' }} />
           </div>
-          <h1 style={{ fontSize:23, fontWeight:900, color:C.text1, letterSpacing:-0.7, marginBottom:5 }}>مرحباً بعودتك</h1>
+          <h1 style={{ fontSize:23, fontWeight:900, color:C.text1, marginBottom:5 }}>مرحباً بعودتك</h1>
           <p style={{ fontSize:13, color:C.text3, marginBottom:22 }}>سجّلي دخولك للوصول إلى دليلك</p>
 
           <form onSubmit={handleLogin}>
             <div style={{ marginBottom:12 }}>
-              <label htmlFor="login-email" style={{ display:'block', fontSize:10, fontWeight:700, color:C.text2, textTransform:'uppercase', letterSpacing:0.4, marginBottom:5 }}>البريد الإلكتروني</label>
+              <label htmlFor="login-email" style={{ display:'block', fontSize:10, fontWeight:700, color:C.text2, textTransform:'uppercase', marginBottom:5 }}>البريد الإلكتروني</label>
               <div style={{ position:'relative' }}>
                 <input id="login-email" type="email" autoComplete="email" required placeholder="example@email.com" value={email} onChange={e=>setEmail(e.target.value)} onFocus={focus} onBlur={blur} style={inpStyle} />
                 <IconMail size={16} color={C.text4} aria-hidden="true" style={{ position:'absolute', right:13, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }} />
@@ -133,7 +133,7 @@ export default function LoginPage() {
             </div>
 
             <div style={{ marginBottom:8 }}>
-              <label htmlFor="login-password" style={{ display:'block', fontSize:10, fontWeight:700, color:C.text2, textTransform:'uppercase', letterSpacing:0.4, marginBottom:5 }}>كلمة المرور</label>
+              <label htmlFor="login-password" style={{ display:'block', fontSize:10, fontWeight:700, color:C.text2, textTransform:'uppercase', marginBottom:5 }}>كلمة المرور</label>
               <div style={{ position:'relative' }}>
                 <input id="login-password" type={showPwd?'text':'password'} autoComplete="current-password" required placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)} onFocus={focus} onBlur={blur} style={inpStyle} />
                 <button type="button" onClick={()=>setShowPwd(!showPwd)} aria-label={showPwd ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'} aria-pressed={showPwd} style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:C.text4, display:'flex', alignItems:'center' }}>

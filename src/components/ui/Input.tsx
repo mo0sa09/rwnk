@@ -12,7 +12,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="mb-3">
         {label && (
-          <label className="block text-xs font-bold mb-1.5 tracking-wide uppercase"
+          <label className="block text-xs font-bold mb-1.5 uppercase"
             style={{ color: '#4A4060' }}>
             {label}
           </label>

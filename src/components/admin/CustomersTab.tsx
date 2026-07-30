@@ -38,7 +38,7 @@ export function CustomersTab() {
           <div className="admin-table-wrap">
             <div className="admin-table-min">
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 8, padding: '10px 12px' }}>
-                {['العميل', 'عدد الطلبات', 'إجمالي الإنفاق', 'آخر شراء'].map(h => <div key={h} style={{ fontSize: 10, fontWeight: 700, color: C.text3, textTransform: 'uppercase', letterSpacing: 0.3 }}>{h}</div>)}
+                {['العميل', 'عدد الطلبات', 'إجمالي الإنفاق', 'آخر شراء'].map(h => <div key={h} style={{ fontSize: 10, fontWeight: 700, color: C.text3, textTransform: 'uppercase' }}>{h}</div>)}
               </div>
               {customers.map((c, i) => (
                 <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 8, padding: '13px 12px', borderTop: `1px solid ${C.border}`, alignItems: 'center' }}>

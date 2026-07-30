@@ -12,7 +12,7 @@ export const inp: React.CSSProperties = {
 }
 export const label: React.CSSProperties = {
   display: 'block', fontSize: 10, fontWeight: 700, color: C.text2,
-  textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 5,
+  textTransform: 'uppercase', marginBottom: 5,
 }
 export const card: React.CSSProperties = {
   background: W, border: `1px solid ${C.border}`, borderRadius: 18, padding: '22px 24px',

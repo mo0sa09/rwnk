@@ -48,7 +48,7 @@ export default function AccountPage() {
       }/>
       <main style={{minHeight:'100vh',background:'#FAFAFA',paddingTop:78,paddingBottom:48,fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif"}}>
         <div style={{maxWidth:720,margin:'0 auto',padding:'0 24px'}}>
-          <h1 style={{fontSize:26,fontWeight:900,letterSpacing:-0.7,marginBottom:4,color:T1}}>حسابي</h1>
+          <h1 style={{fontSize:26,fontWeight:900,marginBottom:4,color:T1}}>حسابي</h1>
           <p style={{fontSize:13,color:T3,marginBottom:28}}>إدارة معلوماتك وطلباتك</p>
           <div style={{background:'#fff',border:`1px solid ${BR}`,borderRadius:20,padding:'22px 24px',display:'flex',flexWrap:'wrap',alignItems:'center',gap:18,marginBottom:14}}>
             <div style={{width:62,height:62,borderRadius:'50%',flexShrink:0,background:'linear-gradient(135deg,#6747B2,#8b6dd4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,fontWeight:900,color:'#fff',boxShadow:'0 4px 16px rgba(103,71,178,.3)'}}>{name.charAt(0)}</div>
@@ -64,8 +64,8 @@ export default function AccountPage() {
               <span style={{fontSize:14,fontWeight:900,color:T1}}>المعلومات الشخصية</span>
             </div>
             {editMode?<div>
-              <div style={{marginBottom:12}}><label style={{display:'block',fontSize:11,fontWeight:700,color:T2,textTransform:'uppercase',letterSpacing:0.4,marginBottom:6}}>الاسم الكامل</label><input value={form.full_name} onChange={e=>setForm(f=>({...f,full_name:e.target.value}))} style={inp} onFocus={focus} onBlur={blur}/></div>
-              <div style={{marginBottom:16}}><label style={{display:'block',fontSize:11,fontWeight:700,color:T2,textTransform:'uppercase',letterSpacing:0.4,marginBottom:6}}>رقم الجوال</label><input value={form.phone} dir="ltr" onChange={e=>setForm(f=>({...f,phone:e.target.value}))} placeholder="+965 XXXX XXXX" style={inp} onFocus={focus} onBlur={blur}/></div>
+              <div style={{marginBottom:12}}><label style={{display:'block',fontSize:11,fontWeight:700,color:T2,marginBottom:6}}>الاسم الكامل</label><input value={form.full_name} onChange={e=>setForm(f=>({...f,full_name:e.target.value}))} style={inp} onFocus={focus} onBlur={blur}/></div>
+              <div style={{marginBottom:16}}><label style={{display:'block',fontSize:11,fontWeight:700,color:T2,marginBottom:6}}>رقم الجوال</label><input value={form.phone} dir="ltr" onChange={e=>setForm(f=>({...f,phone:e.target.value}))} placeholder="+965 XXXX XXXX" style={inp} onFocus={focus} onBlur={blur}/></div>
               <button onClick={handleSave} disabled={saving} style={{height:44,padding:'0 24px',background:saving?'#8b6dd4':P,color:'#fff',border:'none',borderRadius:10,fontSize:14,fontWeight:900,cursor:saving?'wait':'pointer',fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif"}}>{saving?'جاري الحفظ...':'حفظ التغييرات'}</button>
             </div>:[
               {label:'الاسم الكامل',value:profile?.full_name||'—'},{label:'البريد الإلكتروني',value:user?.email,ltr:true},

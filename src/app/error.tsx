@@ -19,7 +19,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
             <path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
           </svg>
         </div>
-        <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.6, marginBottom: 10 }}>حدث خطأ غير متوقع</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 900, marginBottom: 10 }}>حدث خطأ غير متوقع</h1>
         <p style={{ fontSize: 14, color: '#9890AA', lineHeight: 1.7, marginBottom: 28 }}>
           نعتذر عن هذا الإزعاج. يمكنك إعادة المحاولة، وإذا استمرت المشكلة تواصلي معنا.
         </p>

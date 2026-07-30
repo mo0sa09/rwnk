@@ -56,7 +56,7 @@ export default function Footer({ settings }: { settings?: StoreSettings }) {
       <div style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', padding: 'clamp(32px,7vw,52px) clamp(20px,6vw,40px)' }}>
         <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 24 }}>
           <div>
-            <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.8, marginBottom: 6 }}>{S.footer_cta_title}</div>
+            <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 6 }}>{S.footer_cta_title}</div>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.65 }}>{S.footer_cta_subtitle}</p>
           </div>
           <Link href="/checkout" style={{
@@ -115,7 +115,7 @@ export default function Footer({ settings }: { settings?: StoreSettings }) {
           {/* Link columns */}
           {Object.entries(LINKS).map(([title, links]) => (
             <div key={title}>
-              <div style={{ fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.22)', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.22)', textTransform: 'uppercase', marginBottom: 16 }}>
                 {title}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

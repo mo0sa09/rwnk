@@ -42,7 +42,7 @@ export default function Navbar({ rightContent }: NavbarProps) {
       {/* Logo */}
       <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', flexShrink: 0 }}>
         <Image src="/logo-icon.png" alt="رَوْنَق" width={28} height={33} style={{ width: 28, height: 33, objectFit: 'contain', flexShrink: 0 }} />
-        <span style={{ fontSize: 17, fontWeight: 900, color: C.text1, letterSpacing: -0.3 }}>رَوْنَق</span>
+        <span style={{ fontSize: 17, fontWeight: 900, color: C.text1 }}>رَوْنَق</span>
       </Link>
 
       {/* Center links */}

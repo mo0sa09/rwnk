@@ -14,23 +14,39 @@ interface GatewayResult {
 // ── MyFatoorah verification ──────────────────────────────────
 // GetPaymentStatus accepts KeyType 'InvoiceId' (what we store at
 // /api/payment/initiate time) or 'PaymentId' (what MyFatoorah appends to
-// the CallBackUrl on redirect — note: NOT 'InvoiceId', that param name
-// never appears on the redirect at all, which was the root cause of the
-// "charged but bounced back to checkout" bug).
+// BOTH CallBackUrl and ErrorUrl on redirect — note: NOT 'InvoiceId', that
+// param name never appears on the redirect at all, which was one root cause
+// of the "charged but bounced back to checkout" bug). The other cause was
+// ErrorUrl skipping this verification path entirely and going straight to
+// the checkout error banner — see the comment on `errorUrl` in
+// /api/payment/initiate/route.ts. Both are now fixed: this endpoint is the
+// single source of truth for the outcome regardless of which URL MyFatoorah
+// redirected to.
 async function checkMyFatoorah(key: string, keyType: 'InvoiceId' | 'PaymentId', purchaseId: string): Promise<GatewayResult> {
   const apiKey  = process.env.MYFATOORAH_API_KEY!
   const baseUrl = process.env.MYFATOORAH_BASE_URL ?? 'https://apitest.myfatoorah.com'
 
-  console.log(`[payment/verify] MyFatoorah GetPaymentStatus request — Key=${key} KeyType=${keyType} purchaseId=${purchaseId}`)
+  console.log(`[payment/verify] MyFatoorah GetPaymentStatus request — baseUrl=${baseUrl} Key=${key} KeyType=${keyType} purchaseId=${purchaseId}`)
 
   const res = await fetch(`${baseUrl}/v2/GetPaymentStatus`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({ Key: key, KeyType: keyType }),
   })
-  const data = await res.json()
-  console.log('[payment/verify] MyFatoorah GetPaymentStatus response', JSON.stringify(data))
 
+  const rawBody = await res.text()
+  let data: any
+  try {
+    data = JSON.parse(rawBody)
+  } catch {
+    console.error(`[payment/verify] MyFatoorah GetPaymentStatus returned non-JSON (HTTP ${res.status}) for purchase ${purchaseId} — likely wrong MYFATOORAH_BASE_URL or an auth/proxy failure. Raw body: ${rawBody.slice(0, 500)}`)
+    throw new Error(`MyFatoorah status check returned a non-JSON response (HTTP ${res.status})`)
+  }
+  console.log(`[payment/verify] MyFatoorah GetPaymentStatus response — HTTP ${res.status} IsSuccess=${data.IsSuccess}`, JSON.stringify(data))
+
+  if (!res.ok) {
+    console.error(`[payment/verify] MyFatoorah GetPaymentStatus HTTP ${res.status} for purchase ${purchaseId} — ${data.Message ?? 'no message'}`)
+  }
   if (!data.IsSuccess) {
     throw new Error(`MyFatoorah status check failed: ${data.Message ?? 'unknown error'}`)
   }
@@ -217,10 +233,27 @@ export async function POST(request: NextRequest) {
   if (gateway === 'tap') {
     purchaseId = body.metadata?.purchaseId ?? body.reference?.merchant
   } else {
-    purchaseId = body.UserDefinedField ?? body.CustomerReference
+    // MyFatoorah's portal-configured Webhook (separate from the CallBackUrl/
+    // ErrorUrl redirect handled by the GET handler above) sends an object-
+    // based payload: { Event: {...}, Data: { Invoice: { UserDefinedField,
+    // Id, ... }, Transaction: { PaymentId, ... }, ... } } — the reference we
+    // set at SendPayment time lives at Data.Invoice.UserDefinedField, NOT at
+    // the payload root. The flat body.UserDefinedField/body.CustomerReference
+    // check below is kept only as a fallback for older/legacy webhook
+    // configurations that still POST a flat shape — without it, every real
+    // MyFatoorah webhook call 400'd with "Missing reference" and was
+    // silently dropped, meaning any payment finalized asynchronously
+    // (a delayed KNET/bank confirmation after the customer's browser already
+    // left, or the customer closing the tab before the CallBackUrl redirect
+    // completed) never got marked paid even though it had succeeded.
+    purchaseId =
+      body.Data?.Invoice?.UserDefinedField ??
+      body.Data?.Invoice?.CustomerReference ??
+      body.UserDefinedField ??
+      body.CustomerReference
   }
 
-  console.log(`[payment/callback POST] webhook received — gateway=${gateway} purchaseId=${purchaseId ?? 'MISSING'}`)
+  console.log(`[payment/callback POST] webhook received — gateway=${gateway} purchaseId=${purchaseId ?? 'MISSING'} body=${JSON.stringify(body).slice(0, 1000)}`)
 
   if (!purchaseId) {
     console.error('[payment/callback POST] webhook payload has no purchase reference — cannot process', JSON.stringify(body))

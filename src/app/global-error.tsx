@@ -18,7 +18,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           textAlign: 'center', padding: '40px 24px',
         }}>
           <div style={{ maxWidth: 420 }}>
-            <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.6, marginBottom: 10 }}>حدث خطأ في الموقع</h1>
+            <h1 style={{ fontSize: 22, fontWeight: 900, marginBottom: 10 }}>حدث خطأ في الموقع</h1>
             <p style={{ fontSize: 14, color: '#9890AA', lineHeight: 1.7, marginBottom: 28 }}>
               يرجى إعادة تحميل الصفحة. إذا استمرت المشكلة، تواصلي معنا.
             </p>

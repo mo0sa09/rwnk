@@ -20,6 +20,16 @@ export interface MyFatoorahVerdict {
 // MyFatoorah's InvoiceStatus is only ever 'Paid' or 'Pending' — a failed or
 // cancelled attempt still reports 'Pending' at the invoice level. The real
 // outcome has to be read off the most recent entry in InvoiceTransactions.
+//
+// Status strings are compared case-insensitively on purpose: MyFatoorah's
+// own documentation is inconsistent about casing between API surfaces (the
+// v2 GetPaymentStatus REST endpoint used here documents PascalCase — "Paid",
+// "Failed", "Canceled" — while their newer Webhook V2 payloads and v3 API
+// use UPPERCASE — "PAID", "FAILED", "CANCELED"). A strict, case-sensitive
+// '===' against one exact casing is exactly the kind of thing that silently
+// turns a genuinely successful payment into "not completed" the moment
+// MyFatoorah changes casing on either surface — so normalize before
+// comparing instead of trusting one fixed casing to never drift.
 export function deriveMyFatoorahVerdict(data: {
   CustomerReference?: string | null
   UserDefinedField?: string | null
@@ -27,15 +37,16 @@ export function deriveMyFatoorahVerdict(data: {
   InvoiceTransactions?: MyFatoorahTransaction[]
 } | null | undefined): MyFatoorahVerdict {
   const reference = data?.CustomerReference ?? data?.UserDefinedField ?? null
-  const invoiceStatus = data?.InvoiceStatus
+  const invoiceStatus = (data?.InvoiceStatus ?? '').toLowerCase()
   const transactions = data?.InvoiceTransactions ?? []
   const latest = [...transactions].sort(
     (a, b) => new Date(b.TransactionDate).getTime() - new Date(a.TransactionDate).getTime()
   )[0]
+  const latestStatus = (latest?.TransactionStatus ?? '').toLowerCase()
 
   let status: GatewayStatus = 'pending'
-  if (invoiceStatus === 'Paid') status = 'completed'
-  else if (latest && ['Failed', 'Canceled', 'Cancelled'].includes(latest.TransactionStatus)) status = 'failed'
+  if (invoiceStatus === 'paid') status = 'completed'
+  else if (latest && ['failed', 'canceled', 'cancelled', 'declined'].includes(latestStatus)) status = 'failed'
 
   return { status, reference, paymentMethod: latest?.PaymentGateway ?? null }
 }

@@ -30,7 +30,7 @@ export default async function FaqPage() {
       <Navbar />
       <main style={{ paddingTop: 120, paddingBottom: 80 }}>
         <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 clamp(20px,6vw,40px)' }}>
-          <h1 style={{ fontSize: 'clamp(24px,5.5vw,34px)', fontWeight: 900, letterSpacing: -0.8, marginBottom: 8, color: T1 }}>الأسئلة الشائعة</h1>
+          <h1 style={{ fontSize: 'clamp(24px,5.5vw,34px)', fontWeight: 900, marginBottom: 8, color: T1 }}>الأسئلة الشائعة</h1>
           <p style={{ fontSize: 15, color: T2, marginBottom: 32 }}>كل ما تحتاجين معرفته عن كتاب رَوْنَق قبل الشراء.</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 720 }}>
             {faqs.map(faq => (

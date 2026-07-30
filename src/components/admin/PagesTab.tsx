@@ -8,7 +8,7 @@ const inp: React.CSSProperties = {
   width: '100%', height: 42, background: '#fafafa', border: `1px solid ${C.border}`,
   borderRadius: 10, padding: '0 12px', fontSize: 13, color: C.text1, outline: 'none', fontFamily: "var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif",
 }
-const label: React.CSSProperties = { display: 'block', fontSize: 10, fontWeight: 700, color: C.text2, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 5 }
+const label: React.CSSProperties = { display: 'block', fontSize: 10, fontWeight: 700, color: C.text2, textTransform: 'uppercase', marginBottom: 5 }
 
 const SLUGS: { slug: PageContent['slug']; label: string }[] = [
   { slug: 'about',   label: 'من نحن' },

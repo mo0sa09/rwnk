@@ -75,7 +75,7 @@ export function OrdersTab() {
           <div className="admin-table-wrap">
             <div className="admin-table-min">
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr 1fr 0.8fr 0.7fr 0.6fr', gap: 8, padding: '10px 12px' }}>
-                {['الفاتورة', 'العميل', 'التاريخ', 'طريقة الدفع', 'الحالة', 'المبلغ'].map(h => <div key={h} style={{ fontSize: 10, fontWeight: 700, color: C.text3, textTransform: 'uppercase', letterSpacing: 0.3 }}>{h}</div>)}
+                {['الفاتورة', 'العميل', 'التاريخ', 'طريقة الدفع', 'الحالة', 'المبلغ'].map(h => <div key={h} style={{ fontSize: 10, fontWeight: 700, color: C.text3, textTransform: 'uppercase' }}>{h}</div>)}
               </div>
               {orders.map(o => {
                 const st = STATUS[o.status] ?? STATUS.pending

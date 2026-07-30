@@ -52,7 +52,7 @@ export default function LibraryPage() {
       <main style={{minHeight:'100vh',background:'#FAFAFA',paddingTop:78,paddingBottom:48,fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif"}}>
         <div style={{maxWidth:860,margin:'0 auto',padding:'0 24px'}}>
           <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:28}}>
-            <h1 style={{fontSize:26,fontWeight:900,letterSpacing:-0.7,color:T1}}>مكتبتي </h1>
+            <h1 style={{fontSize:26,fontWeight:900,color:T1}}>مكتبتي </h1>
             <span style={{fontSize:13,color:T3}}>{library.length} منتج</span>
           </div>
           {library.length===0?<div style={{background:'#fff',border:`1px solid ${BR}`,borderRadius:20,padding:'48px 32px',textAlign:'center'}}>
@@ -82,7 +82,7 @@ export default function LibraryPage() {
                     <span style={{fontSize:10,fontWeight:900,color:'#fff'}}>رَوْنَق</span>
                   </div>
                   <div style={{flex:'1 1 200px',minWidth:0}}>
-                    <div style={{fontSize:17,fontWeight:900,letterSpacing:-0.4,marginBottom:4,color:T1}}>{item.product_name??'كتاب رَوْنَق — دليل التنظيف الاحترافي'}</div>
+                    <div style={{fontSize:17,fontWeight:900,marginBottom:4,color:T1}}>{item.product_name??'كتاب رَوْنَق — دليل التنظيف الاحترافي'}</div>
                     <div style={{fontSize:12,color:T3,marginBottom:10}}>الإصدار {item.product_version??'1.0'} · PDF</div>
                     <div style={{marginBottom:8}}>
                       <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:T3,marginBottom:5}}>

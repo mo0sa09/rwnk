@@ -41,7 +41,7 @@ export function DashboardHome({ onNavigate }: { onNavigate: (tab: string) => voi
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 900, color: C.text1, letterSpacing: -0.5, marginBottom: 4 }}>مرحباً بك، المشرف</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 900, color: C.text1, marginBottom: 4 }}>مرحباً بك، المشرف</h1>
         <p style={{ fontSize: 13, color: C.text3 }}>إليك ملخص أداء رَوْنَق</p>
       </div>
 
@@ -99,7 +99,7 @@ export function DashboardHome({ onNavigate }: { onNavigate: (tab: string) => voi
           <div className="admin-table-wrap">
             <div className="admin-table-min">
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.4fr 0.9fr 0.7fr 0.5fr', gap: 8, padding: '7px 12px', marginBottom: 4 }}>
-                {['المعرّف', 'العميل', 'التاريخ', 'الحالة', 'المبلغ'].map(h => <div key={h} style={{ fontSize: 10, fontWeight: 700, color: C.text3, textTransform: 'uppercase', letterSpacing: 0.3 }}>{h}</div>)}
+                {['المعرّف', 'العميل', 'التاريخ', 'الحالة', 'المبلغ'].map(h => <div key={h} style={{ fontSize: 10, fontWeight: 700, color: C.text3, textTransform: 'uppercase' }}>{h}</div>)}
               </div>
               {data.recentPayments.map((p, i) => {
                 const st = STATUS[p.status] ?? STATUS.pending

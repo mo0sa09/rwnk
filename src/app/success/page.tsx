@@ -137,7 +137,7 @@ export default function SuccessPage() {
             <div style={{ width:64, height:64, borderRadius:'50%', margin:'0 auto 16px', background:C.secondaryBg, border:`1.5px solid #5DCAA5`, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 0 0 8px rgba(54,219,156,0.08)' }}>
               <IconCircleCheck size={30} color="#085041" />
             </div>
-            <h1 style={{ fontSize:23, fontWeight:900, letterSpacing:-0.6, marginBottom:6, color:C.text1 }}>تم الدفع بنجاح</h1>
+            <h1 style={{ fontSize:23, fontWeight:900, marginBottom:6, color:C.text1 }}>تم الدفع بنجاح</h1>
             <p style={{ fontSize:13, color:C.text3, lineHeight:1.65 }}>كتاب رَوْنَق الآن ملكك — يمكنك تحميله مباشرة</p>
           </div>
 
@@ -200,11 +200,11 @@ export default function SuccessPage() {
               </p>
               <form onSubmit={handleCreateAccount}>
                 <div style={{ marginBottom:10 }}>
-                  <label htmlFor="success-pwd" style={{ display:'block', fontSize:10, fontWeight:700, color:C.text2, textTransform:'uppercase', letterSpacing:0.4, marginBottom:5 }}>كلمة المرور</label>
+                  <label htmlFor="success-pwd" style={{ display:'block', fontSize:10, fontWeight:700, color:C.text2, textTransform:'uppercase', marginBottom:5 }}>كلمة المرور</label>
                   <input id="success-pwd" type="password" placeholder="8 أحرف على الأقل" autoComplete="new-password" value={pwd} onChange={e=>setPwd(e.target.value)} onFocus={focus} onBlur={blur} style={inpS} />
                 </div>
                 <div style={{ marginBottom:12 }}>
-                  <label htmlFor="success-pwd2" style={{ display:'block', fontSize:10, fontWeight:700, color:C.text2, textTransform:'uppercase', letterSpacing:0.4, marginBottom:5 }}>تأكيد كلمة المرور</label>
+                  <label htmlFor="success-pwd2" style={{ display:'block', fontSize:10, fontWeight:700, color:C.text2, textTransform:'uppercase', marginBottom:5 }}>تأكيد كلمة المرور</label>
                   <input id="success-pwd2" type="password" placeholder="••••••••" autoComplete="new-password" value={pwd2} onChange={e=>setPwd2(e.target.value)} onFocus={focus} onBlur={blur} style={inpS} />
                 </div>
                 {pwError && <p role="alert" style={{ fontSize:12, color:'#A32D2D', marginBottom:10, padding:'7px 12px', background:'#FEF2F2', borderRadius:8 }}>{pwError}</p>}

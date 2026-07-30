@@ -99,6 +99,34 @@ section('MyFatoorah verdict parsing (deriveMyFatoorahVerdict)')
   check('picks latest transaction by date, not array order', v.paymentMethod === 'KNET', JSON.stringify(v))
 }
 
+{
+  // ✓ MyFatoorah's own docs are inconsistent about casing between API
+  // surfaces (v2 GetPaymentStatus documents "Paid"/PascalCase; Webhook V2
+  // and v3 use "PAID"/UPPERCASE). A strict case-sensitive compare here is
+  // exactly the bug class that turns a real success into "not completed" —
+  // this must match regardless of casing.
+  const v = deriveMyFatoorahVerdict({
+    CustomerReference: 'purchase-222',
+    InvoiceStatus: 'PAID',
+    InvoiceTransactions: [
+      { TransactionDate: '2026-07-30T10:00:00Z', TransactionStatus: 'SUCCESS', PaymentGateway: 'KNET' },
+    ],
+  })
+  check('uppercase InvoiceStatus "PAID" still => completed', v.status === 'completed', JSON.stringify(v))
+}
+
+{
+  // ✓ Same casing robustness on the failure side.
+  const v = deriveMyFatoorahVerdict({
+    CustomerReference: 'purchase-333',
+    InvoiceStatus: 'PENDING',
+    InvoiceTransactions: [
+      { TransactionDate: '2026-07-30T10:00:00Z', TransactionStatus: 'CANCELED', PaymentGateway: 'KNET' },
+    ],
+  })
+  check('uppercase TransactionStatus "CANCELED" still => failed', v.status === 'failed', JSON.stringify(v))
+}
+
 // ─────────────────────────────────────────────────────────────
 // 2. Finalize decision logic (decideFinalize)
 // ─────────────────────────────────────────────────────────────

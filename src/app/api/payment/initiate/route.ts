@@ -3,11 +3,31 @@ import { getSupabaseServerEnv } from '@/lib/env'
 
 export const dynamic = 'force-dynamic'
 
+// Sandbox and production base URLs must never be mixed with the wrong API
+// key (a live key against apitest.myfatoorah.com — or worse, a test key
+// against api.myfatoorah.com — fails auth or, on some MyFatoorah accounts,
+// silently exercises the wrong environment). This is a same-machine sanity
+// check only (it can't see the key's own value/type), logged once per
+// initiate call so a misconfigured hosting-platform env var is visible in
+// server logs immediately instead of surfacing as a confusing downstream
+// "payment succeeded but callback says failed" report days later.
+function warnIfEnvLooksInconsistent(baseUrl: string, appUrl: string) {
+  const isLiveGateway = baseUrl.includes('api.myfatoorah.com') && !baseUrl.includes('apitest')
+  const isLocalApp    = appUrl.includes('localhost') || appUrl.includes('127.0.0.1')
+  if (isLiveGateway && isLocalApp) {
+    console.warn(`[myfatoorah] MYFATOORAH_BASE_URL is the LIVE gateway (${baseUrl}) but NEXT_PUBLIC_APP_URL is local (${appUrl}) — MyFatoorah cannot reach a localhost CallBackUrl/ErrorUrl from its servers. This will look like "payment succeeded but we never heard back."`)
+  }
+  if (!isLiveGateway && !isLocalApp) {
+    console.warn(`[myfatoorah] MYFATOORAH_BASE_URL is the SANDBOX gateway (${baseUrl}) but NEXT_PUBLIC_APP_URL looks like a production domain (${appUrl}) — confirm this is intentional (test mode on a live domain) and not a forgotten env var before going live.`)
+  }
+}
+
 async function initMyFatoorah(payload: {
   email: string; amount: number; purchaseId: string; callbackUrl: string; errorUrl: string
 }) {
   const apiKey  = process.env.MYFATOORAH_API_KEY!
   const baseUrl = process.env.MYFATOORAH_BASE_URL ?? 'https://apitest.myfatoorah.com'
+  warnIfEnvLooksInconsistent(baseUrl, process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000')
 
   // v2/SendPayment (not ExecutePayment). ExecutePayment requires either a
   // real PaymentMethodId obtained from InitiatePayment first, or a SessionId
@@ -16,29 +36,53 @@ async function initMyFatoorah(payload: {
   // creates an invoice and returns a hosted InvoiceURL listing every
   // enabled payment method, which is what "PaymentMethodId: 0" was trying
   // (incorrectly) to achieve.
+  const requestBody = {
+    CustomerName:       'رونق عميل',
+    NotificationOption: 'LNK',
+    DisplayCurrencyIso: 'KWD',
+    CustomerEmail:      payload.email,
+    InvoiceValue:       payload.amount,
+    CallBackUrl:        payload.callbackUrl,
+    ErrorUrl:           payload.errorUrl,
+    Language:           'AR',
+    CustomerReference:  payload.purchaseId,
+    UserDefinedField:   payload.purchaseId,
+  }
+  console.log(`[myfatoorah/SendPayment] request — baseUrl=${baseUrl} purchase=${payload.purchaseId}`, JSON.stringify(requestBody))
+
   const sendRes = await fetch(`${baseUrl}/v2/SendPayment`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      CustomerName:       'رونق عميل',
-      NotificationOption: 'LNK',
-      DisplayCurrencyIso: 'KWD',
-      CustomerEmail:      payload.email,
-      InvoiceValue:       payload.amount,
-      CallBackUrl:        payload.callbackUrl,
-      ErrorUrl:           payload.errorUrl,
-      Language:           'AR',
-      CustomerReference:  payload.purchaseId,
-      UserDefinedField:   payload.purchaseId,
-    }),
+    body: JSON.stringify(requestBody),
   })
-  const send = await sendRes.json()
-  console.log('[myfatoorah/SendPayment] response', JSON.stringify(send))
+
+  const rawBody = await sendRes.text()
+  let send: any
+  try {
+    send = JSON.parse(rawBody)
+  } catch {
+    // A non-JSON body (HTML error page, empty body, proxy error) almost
+    // always means the wrong base URL, an unreachable host, or an
+    // authorization failure returning a non-API error page — none of which
+    // surface any usable detail from send.Message, so log the raw response.
+    console.error(`[myfatoorah/SendPayment] non-JSON response (HTTP ${sendRes.status}) — likely wrong MYFATOORAH_BASE_URL or an auth/proxy failure. Raw body: ${rawBody.slice(0, 500)}`)
+    throw new Error(`MyFatoorah returned a non-JSON response (HTTP ${sendRes.status})`)
+  }
+
+  console.log(`[myfatoorah/SendPayment] response — HTTP ${sendRes.status} IsSuccess=${send.IsSuccess}`, JSON.stringify(send))
+
+  if (!sendRes.ok) {
+    console.error(`[myfatoorah/SendPayment] HTTP ${sendRes.status} — ${send.Message ?? 'no message'}`)
+  }
   if (!send.IsSuccess) {
     const detail = send.ValidationErrors?.map((e: any) => `${e.Name}: ${e.Error}`).join('; ')
-    throw new Error(detail || send.Message || 'MyFatoorah error')
+    throw new Error(detail || send.Message || `MyFatoorah error (HTTP ${sendRes.status})`)
   }
-  return { paymentUrl: send.Data.InvoiceURL as string, invoiceId: send.Data.InvoiceId?.toString() as string }
+  if (!send.Data?.InvoiceURL || !send.Data?.InvoiceId) {
+    console.error('[myfatoorah/SendPayment] IsSuccess=true but Data.InvoiceURL/InvoiceId missing', JSON.stringify(send))
+    throw new Error('MyFatoorah response missing InvoiceURL/InvoiceId')
+  }
+  return { paymentUrl: send.Data.InvoiceURL as string, invoiceId: send.Data.InvoiceId.toString() as string }
 }
 
 async function initTap(payload: {
@@ -103,7 +147,21 @@ export async function POST(request: NextRequest) {
   const appUrl     = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
   const gateway    = (process.env.PAYMENT_GATEWAY ?? 'myfatoorah') as 'myfatoorah' | 'tap'
   const callbackUrl = `${appUrl}/api/payment/callback?purchaseId=${purchaseId}&gateway=${gateway}`
-  const errorUrl    = `${appUrl}/checkout?error=payment_failed&purchaseId=${purchaseId}`
+  // MyFatoorah appends `paymentId` to BOTH CallBackUrl (success) and ErrorUrl
+  // (failed/declined/cancelled) — per official docs, it decides which of the
+  // two to redirect to based on its own read of the outcome. That
+  // classification must never be trusted blindly: ErrorUrl used to point
+  // straight at /checkout?error=payment_failed, which meant a payment
+  // MyFatoorah routed through ErrorUrl was shown to the customer as failed
+  // with NO call to GetPaymentStatus ever made — if MyFatoorah's own
+  // redirect choice was ever wrong (delayed confirmation, a retried attempt
+  // on the same invoice that succeeded after an earlier decline, etc.) a
+  // genuinely paid order stayed 'pending' forever with the customer told it
+  // failed. Routing ErrorUrl through the same verification endpoint as
+  // CallBackUrl means the *appended paymentId* — not which URL MyFatoorah
+  // picked — is what ultimately decides success/failure, via a live
+  // GetPaymentStatus call, exactly like the CallBackUrl path.
+  const errorUrl    = callbackUrl
 
   console.log(`[payment/initiate] starting ${gateway} payment — purchase=${purchaseId} email=${purchase.email} amount=${purchase.amount}`)
 

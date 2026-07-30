@@ -9,7 +9,7 @@ export default function NotFound() {
     }}>
       <div>
         <div style={{ marginBottom: 24 }}><svg width='80' height='80' viewBox='0 0 24 24' fill='none' stroke='#9890AA' strokeWidth='1.5'><circle cx='11' cy='11' r='8'/><path d='m21 21-4.35-4.35'/></svg></div>
-        <h1 style={{ fontSize: 32, fontWeight: 900, letterSpacing: -0.8, marginBottom: 8 }}>الصفحة غير موجودة</h1>
+        <h1 style={{ fontSize: 32, fontWeight: 900, marginBottom: 8 }}>الصفحة غير موجودة</h1>
         <p style={{ fontSize: 15, color: '#9890AA', marginBottom: 32, lineHeight: 1.6 }}>
           الرابط الذي فتحته غير موجود أو تم نقله.
         </p>

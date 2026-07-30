@@ -129,7 +129,7 @@ export function CrudSection({ resource, title, description, fields, emptyItem, r
           <div className="admin-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {fields.map(f => (
               <div key={f.key} style={{ gridColumn: f.type === 'textarea' ? '1 / -1' : undefined }}>
-                <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: C.text2, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 5 }}>{f.label}</label>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: C.text2, textTransform: 'uppercase', marginBottom: 5 }}>{f.label}</label>
                 {f.type === 'textarea' ? (
                   <textarea rows={3} value={editing[f.key] ?? ''} onChange={e => setEditing((s: any) => ({ ...s, [f.key]: e.target.value }))} style={{ ...inp, resize: 'vertical' }} placeholder={f.placeholder} />
                 ) : f.type === 'select' ? (

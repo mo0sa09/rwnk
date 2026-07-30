@@ -85,7 +85,7 @@ export default function CheckoutPage() {
           </Link>
           <span style={{fontSize:12,color:T3}}>دفع آمن ومشفّر</span>
         </div>
-        <h1 style={{fontSize:24,fontWeight:900,letterSpacing:-0.7,marginBottom:4,color:T1}}>إتمام الشراء</h1>
+        <h1 style={{fontSize:24,fontWeight:900,marginBottom:4,color:T1}}>إتمام الشراء</h1>
         <p style={{fontSize:13,color:T3,marginBottom:24}}>لا حاجة لإنشاء حساب — ادفعي واستلمي فوراً</p>
 
         {banner && (
@@ -95,7 +95,7 @@ export default function CheckoutPage() {
         )}
 
         <div style={{background:'#fff',border:`1px solid ${BR}`,borderRadius:16,padding:20,marginBottom:14}}>
-          <label htmlFor="checkout-email" style={{display:'block',fontSize:11,fontWeight:900,color:P,textTransform:'uppercase',letterSpacing:1.5,marginBottom:14}}>بريدك الإلكتروني</label>
+          <label htmlFor="checkout-email" style={{display:'block',fontSize:11,fontWeight:900,color:P,textTransform:'uppercase',marginBottom:14}}>بريدك الإلكتروني</label>
           <input id="checkout-email" type="email" placeholder="example@email.com" dir="ltr" autoComplete="email" required
             value={email} onChange={e=>{setEmail(e.target.value); if(error) setError('')}} onFocus={focus} onBlur={blur}
             aria-invalid={!!error} aria-describedby={error?'checkout-email-error':undefined}
@@ -105,7 +105,7 @@ export default function CheckoutPage() {
         </div>
 
         <div style={{background:'#fff',border:`1px solid ${BR}`,borderRadius:16,padding:20}}>
-          <div style={{fontSize:11,fontWeight:900,color:P,textTransform:'uppercase',letterSpacing:1.5,marginBottom:14}}>طريقة الدفع</div>
+          <div style={{fontSize:11,fontWeight:900,color:P,textTransform:'uppercase',marginBottom:14}}>طريقة الدفع</div>
           <div className="checkout-pm-grid" role="radiogroup" aria-label="طريقة الدفع" style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:16}}>
             {PM.map(m=>(
               <button key={m.id} type="button" role="radio" aria-checked={pm===m.id} onClick={()=>setPm(m.id)}
@@ -148,7 +148,7 @@ export default function CheckoutPage() {
         </div>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 0',borderTop:`1px solid ${BR}`,marginBottom:20}}>
           <span style={{fontSize:14,fontWeight:900,color:T1}}>الإجمالي</span>
-          <span style={{fontSize:26,fontWeight:900,color:P,letterSpacing:-0.5}}>{price} <span style={{fontSize:13,fontWeight:400,color:T3}}>د.ك</span></span>
+          <span style={{fontSize:26,fontWeight:900,color:P,letterSpacing:-0.5}}>{price} <span style={{fontSize:13,fontWeight:400,color:T3,letterSpacing:'normal'}}>د.ك</span></span>
         </div>
         <button onClick={handlePay} disabled={loading} aria-busy={loading} style={{width:'100%',height:52,background:loading?'#8b6dd4':P,color:'#fff',border:'none',borderRadius:12,fontSize:15,fontWeight:900,cursor:loading?'wait':'pointer',fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif",boxShadow:'0 2px 12px rgba(103,71,178,.28)'}}>
           {loading?'جاري التحويل لبوابة الدفع...':`ادفع الآن — ${priceLabel}`}
