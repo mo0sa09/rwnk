@@ -94,7 +94,7 @@ export function decideFinalize(
   return { action: 'apply_update', resultStatus: gateway.status, update }
 }
 
-export type CallbackDestination = 'library' | 'pending' | 'failed'
+export type CallbackDestination = 'success' | 'pending' | 'failed'
 
 // Single source of truth for "where does the customer's browser go after
 // the gateway redirect" — used by /api/payment/callback's GET handler so
@@ -105,8 +105,42 @@ export type CallbackDestination = 'library' | 'pending' | 'failed'
 // to checkout" branch as a genuinely declined/cancelled payment). A
 // 'pending' result — settlement not yet confirmed, NOT a decline — must
 // never be indistinguishable from 'failed' at this layer.
+//
+// 'success' → /success, the delivery page (order summary, cover, instant
+// download button, works fully for a signed-out guest). It is NOT /library
+// directly — auto-login is attempted on top of this so the customer often
+// lands already authenticated, but /success never depends on that
+// succeeding. /library remains the permanent archive the customer can
+// return to any time after this first delivery.
 export function resultStatusToDestination(status: GatewayStatus): CallbackDestination {
-  if (status === 'completed') return 'library'
+  if (status === 'completed') return 'success'
   if (status === 'pending') return 'pending'
   return 'failed'
+}
+
+// Extracts the purchaseId (the value we set as CustomerReference/
+// UserDefinedField at SendPayment time) from a MyFatoorah Webhook V2
+// payload: { Event: {...}, Data: { Invoice: { Id, Status, Reference,
+// UserDefinedField, ExternalIdentifier, MetaData:{...} }, ... } }.
+//
+// Data.Invoice.ExternalIdentifier is checked FIRST — confirmed against the
+// official docs' own raw example payload
+// (docs.myfatoorah.com/docs/webhook-v2-payment-status-data-model): in that
+// example, ExternalIdentifier carries the merchant reference while
+// UserDefinedField is an EMPTY STRING on the very same invoice. An earlier
+// version of this code read UserDefinedField first — which resolves to ""
+// (falsy, but NOT null/undefined, so `??` does not fall through to the next
+// field) for every real Webhook V2 delivery, meaning every real webhook
+// 400'd as "missing reference" and was silently dropped. The remaining
+// fields are kept purely as a fallback chain for older/legacy or
+// differently-shaped payloads — they are not the primary, confirmed path.
+export function extractMyFatoorahWebhookPurchaseId(body: any): string | undefined {
+  return (
+    body?.Data?.Invoice?.ExternalIdentifier ||
+    body?.Data?.Invoice?.UserDefinedField ||
+    body?.Data?.Invoice?.CustomerReference ||
+    body?.UserDefinedField ||
+    body?.CustomerReference ||
+    undefined
+  )
 }

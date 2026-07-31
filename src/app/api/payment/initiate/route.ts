@@ -23,7 +23,7 @@ function warnIfEnvLooksInconsistent(baseUrl: string, appUrl: string) {
 }
 
 async function initMyFatoorah(payload: {
-  email: string; amount: number; purchaseId: string; callbackUrl: string; errorUrl: string
+  email: string; amount: number; purchaseId: string; callbackUrl: string; errorUrl: string; webhookUrl: string
 }) {
   const apiKey  = process.env.MYFATOORAH_API_KEY!
   const baseUrl = process.env.MYFATOORAH_BASE_URL ?? 'https://apitest.myfatoorah.com'
@@ -35,7 +35,24 @@ async function initMyFatoorah(payload: {
   // methods" value for it. SendPayment with NotificationOption: 'LNK'
   // creates an invoice and returns a hosted InvoiceURL listing every
   // enabled payment method, which is what "PaymentMethodId: 0" was trying
-  // (incorrectly) to achieve.
+  // (incorrectly) to achieve. Confirmed against the official docs
+  // (docs.myfatoorah.com/docs/send-payment): "LNK" is a documented
+  // NotificationOption value ("response body link only") that returns
+  // Data.InvoiceURL directly — this is not a workaround, it's the
+  // documented way to get a hosted payment link back in the API response.
+  //
+  // WebhookUrl is ALSO a documented per-request SendPayment field: "You
+  // will get the webhook events for the created invoice on the specified
+  // Webhook URL... If you don't add this parameter, MyFatoorah sends the
+  // webhook event to the one configured in the dashboard." Setting it
+  // explicitly on every invoice means webhook delivery — the ONLY
+  // mechanism that can confirm a payment asynchronously after the
+  // customer's browser has already left (closed tab mid-redirect, slow
+  // KNET/bank settlement past our bounded GetPaymentStatus retry window) —
+  // no longer silently depends on whether a portal-level webhook was ever
+  // configured for this MyFatoorah account. Previously it was NOT set at
+  // all, meaning webhook delivery for every invoice was entirely at the
+  // mercy of an unverifiable dashboard setting.
   const requestBody = {
     CustomerName:       'رونق عميل',
     NotificationOption: 'LNK',
@@ -44,6 +61,7 @@ async function initMyFatoorah(payload: {
     InvoiceValue:       payload.amount,
     CallBackUrl:        payload.callbackUrl,
     ErrorUrl:           payload.errorUrl,
+    WebhookUrl:         payload.webhookUrl,
     Language:           'AR',
     CustomerReference:  payload.purchaseId,
     UserDefinedField:   payload.purchaseId,
@@ -162,13 +180,22 @@ export async function POST(request: NextRequest) {
   // picked — is what ultimately decides success/failure, via a live
   // GetPaymentStatus call, exactly like the CallBackUrl path.
   const errorUrl    = callbackUrl
+  // Per official docs (docs.myfatoorah.com/docs/send-payment), WebhookUrl is
+  // set explicitly on every invoice rather than relying on the merchant
+  // portal's dashboard-level webhook setting, which this codebase has no
+  // way to verify is even configured. No purchaseId needs to be encoded in
+  // this URL — the webhook POST handler in /api/payment/callback already
+  // reads the purchase reference from the webhook body itself via
+  // extractMyFatoorahWebhookPurchaseId() (Data.Invoice.ExternalIdentifier),
+  // the same way it does for a dashboard-configured webhook.
+  const webhookUrl = `${appUrl}/api/payment/callback?gateway=${gateway}`
 
   console.log(`[payment/initiate] starting ${gateway} payment — purchase=${purchaseId} email=${purchase.email} amount=${purchase.amount}`)
 
   try {
     const result = gateway === 'tap'
       ? await initTap({ email: purchase.email, amount: purchase.amount, purchaseId, callbackUrl })
-      : await initMyFatoorah({ email: purchase.email, amount: purchase.amount, purchaseId, callbackUrl, errorUrl })
+      : await initMyFatoorah({ email: purchase.email, amount: purchase.amount, purchaseId, callbackUrl, errorUrl, webhookUrl })
 
     // This is the reference the callback later verifies against — stored
     // here, server-side, BEFORE the customer ever reaches the gateway, so

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseServerEnv } from '@/lib/env'
-import { deriveMyFatoorahVerdict, decideFinalize, resultStatusToDestination, type GatewayStatus } from '@/lib/payment-verify'
-import { ensureUserLinked, generateLibraryMagicLink } from '@/lib/payment-access'
+import { deriveMyFatoorahVerdict, decideFinalize, resultStatusToDestination, extractMyFatoorahWebhookPurchaseId, type GatewayStatus } from '@/lib/payment-verify'
+import { ensureUserLinked, mintDownloadToken } from '@/lib/payment-access'
+import { sendPurchaseConfirmationEmail } from '@/lib/email'
 
 export const dynamic = 'force-dynamic'
 
@@ -118,6 +119,60 @@ interface FinalizeResult {
   email: string | null
 }
 
+interface CompletedPurchaseInfo {
+  id: string
+  email: string
+  invoice_number: string | null
+  amount: number
+  currency: string
+  created_at: string
+  product_id: string | null
+}
+
+// Runs the "purchase just became completed, exactly once" side effects:
+// mint a download token (pipeline-completeness/audit — see the comment on
+// mintDownloadToken), then send the confirmation email. Called from the
+// SINGLE branch in verifyAndFinalize where THIS call's own compare-and-swap
+// update is what flipped the row — never from the idempotent
+// already-completed branches — so a duplicate callback/webhook/page-refresh
+// can never re-send the email or re-mint a token for the same purchase.
+// Every failure here is caught, logged, and non-fatal: the purchase is
+// already 'completed' in the database by the time this runs, and nothing
+// in here is allowed to affect that outcome.
+async function notifyPurchaseCompleted(sb: any, purchase: CompletedPurchaseInfo, userId: string | null, appUrl: string) {
+  await mintDownloadToken(sb, purchase.id, userId)
+
+  try {
+    const [{ data: product }, { data: settings }] = await Promise.all([
+      purchase.product_id
+        ? sb.from('products').select('name').eq('id', purchase.product_id).single()
+        : Promise.resolve({ data: null }),
+      sb.from('store_settings').select('store_name,email').single(),
+    ])
+
+    const result = await sendPurchaseConfirmationEmail({
+      to: purchase.email,
+      storeName: settings?.store_name ?? 'رَوْنَق',
+      productName: product?.name ?? 'الكتاب الرقمي',
+      invoiceNumber: purchase.invoice_number ?? purchase.id,
+      amount: purchase.amount,
+      currency: purchase.currency,
+      purchaseDate: purchase.created_at,
+      successUrl: `${appUrl}/success?purchaseId=${purchase.id}`,
+      supportEmail: settings?.email ?? 'hello@rwnk.co',
+    })
+    if (!result.ok) {
+      console.warn(`[payment/callback] purchase ${purchase.id} — confirmation email not sent (${result.reason}); customer can still reach /success directly`)
+    }
+  } catch (err: any) {
+    // Defensive: sendPurchaseConfirmationEmail itself never throws, but the
+    // product/settings lookups above could (network hiccup, malformed row).
+    // Never let that propagate — this whole function is a best-effort
+    // notification step running after the purchase is already completed.
+    console.error(`[payment/callback] purchase ${purchase.id} — notifyPurchaseCompleted failed unexpectedly: ${err?.message ?? err}`)
+  }
+}
+
 // ── Core verify + finalize ───────────────────────────────────
 // The gateway reference used to call GetPaymentStatus/charge lookup is
 // always read from OUR OWN purchases.payment_ref column — written
@@ -135,12 +190,13 @@ async function verifyAndFinalize(
   purchaseId: string,
   gateway: string,
   sb: any,
-  urlFallbackKey: string | null
+  urlFallbackKey: string | null,
+  appUrl: string
 ): Promise<FinalizeResult> {
   console.log(`[payment/callback] verifying purchase=${purchaseId} gateway=${gateway}`)
 
   const { data: purchase, error } = await sb.from('purchases')
-    .select('id,status,payment_ref,email,guest_email,user_id').eq('id', purchaseId).single()
+    .select('id,status,payment_ref,email,guest_email,user_id,invoice_number,amount,currency,created_at,product_id').eq('id', purchaseId).single()
 
   if (error || !purchase) {
     console.error(`[payment/callback] purchase ${purchaseId} not found — ${error?.message ?? 'no matching row'}`)
@@ -202,10 +258,31 @@ async function verifyAndFinalize(
     .select('id,user_id').maybeSingle()
 
   if (updateErr) {
-    console.error(`[payment/callback] failed to write purchase ${purchaseId} update: ${updateErr.message}`)
-    return { status: decision.resultStatus, userId: null, email: null }
+    // CRITICAL: never report decision.resultStatus here — that is what the
+    // gateway confirmed, NOT what the database actually persisted. A live
+    // production audit found this exact bug via a real (schema-mismatch)
+    // write failure: the code returned resultStatus='completed' even though
+    // the row was still 'pending' in the database, which meant the customer
+    // was redirected toward the success destination while
+    // purchases.status stayed 'pending' — /success then correctly showed
+    // "payment not confirmed" (reading the real row), silently stranding a
+    // customer who HAD genuinely paid. Reporting 'pending' here instead is
+    // truthful (the DB write did not happen, whatever the gateway said) and
+    // safe: 'pending' never routes to /checkout as a failure (see
+    // resultStatusToDestination), and the very next retry/webhook delivery
+    // for this purchase will attempt the same write again — once the
+    // underlying issue is fixed (or was transient), that retry succeeds and
+    // the customer reaches their book without ever being charged twice.
+    console.error(`[payment/callback] CRITICAL — failed to persist purchase ${purchaseId} as ${decision.resultStatus} (gateway confirmed this outcome, but the DB write itself failed): ${updateErr.message}. Purchase remains 'pending' in the database; this MUST be investigated — check for a schema mismatch (e.g. a column referenced in the update that does not exist on the live table) or an RLS/permissions issue.`)
+    return { status: 'pending', userId: null, email: null }
   }
   if (!updated) {
+    // Another concurrent call (the GET redirect and the POST webhook racing
+    // each other, or two duplicate webhook deliveries) already won the
+    // compare-and-swap — THAT call is the one responsible for
+    // notifyPurchaseCompleted (email/token), not this one. Re-linking the
+    // account here is still safe/idempotent, but sending would double the
+    // email.
     console.log(`[payment/callback] purchase ${purchaseId} was already transitioned by a concurrent request — re-reading its final state`)
     const { data: settled } = await sb.from('purchases').select('status,user_id,email').eq('id', purchaseId).single()
     if (settled?.status === 'completed') {
@@ -218,7 +295,19 @@ async function verifyAndFinalize(
   console.log(`[payment/callback] purchase ${purchaseId} → status=${decision.resultStatus}${decision.resultStatus === 'completed' ? ` paid_at=${decision.update?.paid_at} payment_method=${decision.update?.payment_method ?? '(unchanged)'}` : ''}`)
 
   if (decision.resultStatus === 'completed') {
+    // This call's own CAS update just flipped pending -> completed — the
+    // ONE moment notifyPurchaseCompleted (download token + confirmation
+    // email) is allowed to fire for this purchase, ever.
     const linked = await ensureUserLinked(sb, { id: purchaseId, user_id: updated.user_id, email: purchase.email, guest_email: purchase.guest_email })
+    await notifyPurchaseCompleted(sb, {
+      id: purchaseId,
+      email: linked?.email ?? purchase.email,
+      invoice_number: purchase.invoice_number,
+      amount: purchase.amount,
+      currency: purchase.currency,
+      created_at: purchase.created_at,
+      product_id: purchase.product_id,
+    }, linked?.userId ?? null, appUrl)
     return { status: 'completed', userId: linked?.userId ?? null, email: linked?.email ?? purchase.email ?? null }
   }
 
@@ -252,27 +341,51 @@ export async function GET(request: NextRequest) {
   const sb = createClient(sbUrl, sbKey) as any
 
   try {
-    const result = await verifyAndFinalize(purchaseId, gateway, sb, urlKey)
+    const result = await verifyAndFinalize(purchaseId, gateway, sb, urlKey, appUrl)
     const destination = resultStatusToDestination(result.status)
+    const successPath = `/success?purchaseId=${purchaseId}`
 
-    if (destination === 'library') {
-      // Send the browser straight through Supabase's own sign-in link
-      // verification (the same mechanism Google login and password-reset
-      // already use via /auth/callback) so it lands on /library already
-      // authenticated — no manual "create a password" step, and NEVER a
-      // bounce to /checkout for a payment that actually succeeded.
-      const magicLink = result.email ? await generateLibraryMagicLink(sb, result.email, appUrl) : null
-      if (magicLink) {
-        console.log(`[payment/callback GET][redirect] purchase ${purchaseId} PAID — auto-login link minted, sending customer straight to /library`)
-        return NextResponse.redirect(magicLink)
-      }
-      // Account/magic-link provisioning failed for some reason (e.g. auth
-      // admin API hiccup) — the purchase is still genuinely completed and
-      // must never be shown as a failure. Fall back to /success, which lets
-      // the customer set a password manually and still reach their book;
-      // this is strictly a degraded UX path, never a lost sale.
-      console.warn(`[payment/callback GET][redirect] purchase ${purchaseId} PAID but auto-login could not be provisioned — falling back to /success (never /checkout)`)
-      return NextResponse.redirect(`${appUrl}/success?purchaseId=${purchaseId}`)
+    if (destination === 'success') {
+      // Auto-login via generateAutoLoginLink is INTENTIONALLY DISABLED as of
+      // a live production E2E audit that proved it was actively broken —
+      // this is not a cautious default, it was a confirmed, severe bug that
+      // could strand a real paying customer:
+      //
+      // 1. supabase.auth.admin.generateLink({type:'magiclink'}) always
+      //    returns an IMPLICIT-flow link — the session tokens come back as a
+      //    URL HASH FRAGMENT (`#access_token=...`) on the final redirect,
+      //    which browsers never send to a server. Our /auth/callback route
+      //    only reads a `?code=` query param (the PKCE flow used by Google
+      //    OAuth and email-confirmation links, which — unlike admin-
+      //    generated links — are initiated client-side by the Supabase SDK,
+      //    which stores a PKCE verifier before redirecting). There is no
+      //    code-verifier for an admin-generated link, so GoTrue cannot issue
+      //    it as PKCE — /auth/callback can never see these tokens, no
+      //    matter what redirectTo is requested.
+      // 2. Independently, the live Supabase project's Auth "Site URL" was
+      //    found to be a stale `http://localhost:3000` — because our
+      //    requested redirectTo isn't on the Redirect URLs allow-list,
+      //    Supabase silently substitutes the Site URL instead of erroring,
+      //    so the verified link's final destination was observed to be
+      //    `http://localhost:3000` (not even /auth/callback) regardless of
+      //    what path we asked for.
+      //
+      // Together this meant a real customer's browser was one gateway
+      // redirect away from landing on a dead localhost URL instead of
+      // /success. ensureUserLinked() above still runs and still correctly
+      // creates/links the account server-side (proven working) — only the
+      // "redirect the browser through a sign-in link" step is skipped.
+      // /success works fully for a signed-out guest (order summary +
+      // instant download, gated by the unguessable purchaseId + a
+      // server-side status=completed check), so this is the only currently
+      // SAFE behavior. Re-enabling browser auto-login would require a
+      // client-side page that parses window.location.hash and calls
+      // supabase.auth.setSession() itself, PLUS fixing the Supabase
+      // project's Site URL/Redirect URLs in its dashboard — neither of
+      // which this fix attempts, since neither is required to reliably get
+      // a paying customer to their book.
+      console.log(`[payment/callback GET][redirect] purchase ${purchaseId} PAID — sending to /success (auto-login via magic link is disabled; see comment above)`)
+      return NextResponse.redirect(`${appUrl}${successPath}`)
     }
 
     if (destination === 'pending') {
@@ -312,24 +425,16 @@ export async function POST(request: NextRequest) {
   if (gateway === 'tap') {
     purchaseId = body.metadata?.purchaseId ?? body.reference?.merchant
   } else {
-    // MyFatoorah's portal-configured Webhook (separate from the CallBackUrl/
-    // ErrorUrl redirect handled by the GET handler above) sends an object-
-    // based payload: { Event: {...}, Data: { Invoice: { UserDefinedField,
-    // Id, ... }, Transaction: { PaymentId, ... }, ... } } — the reference we
-    // set at SendPayment time lives at Data.Invoice.UserDefinedField, NOT at
-    // the payload root. The flat body.UserDefinedField/body.CustomerReference
-    // check below is kept only as a fallback for older/legacy webhook
-    // configurations that still POST a flat shape — without it, every real
-    // MyFatoorah webhook call 400'd with "Missing reference" and was
-    // silently dropped, meaning any payment finalized asynchronously
-    // (a delayed KNET/bank confirmation after the customer's browser already
-    // left, or the customer closing the tab before the CallBackUrl redirect
-    // completed) never got marked paid even though it had succeeded.
-    purchaseId =
-      body.Data?.Invoice?.UserDefinedField ??
-      body.Data?.Invoice?.CustomerReference ??
-      body.UserDefinedField ??
-      body.CustomerReference
+    // See extractMyFatoorahWebhookPurchaseId in payment-verify.ts — the
+    // merchant reference in a real MyFatoorah Webhook V2 payload lives at
+    // Data.Invoice.ExternalIdentifier, confirmed against the docs' own raw
+    // example payload. Reading Data.Invoice.UserDefinedField instead (an
+    // earlier, doc-unverified assumption) resolves to an empty string for
+    // every real delivery, which used to 400 every webhook as "missing
+    // reference" — invisible until WebhookUrl (below) started guaranteeing
+    // delivery on every invoice instead of depending on unverifiable portal
+    // configuration.
+    purchaseId = extractMyFatoorahWebhookPurchaseId(body)
   }
 
   console.log(`[payment/callback POST] webhook received — gateway=${gateway} purchaseId=${purchaseId ?? 'MISSING'} body=${JSON.stringify(body).slice(0, 1000)}`)
@@ -346,16 +451,18 @@ export async function POST(request: NextRequest) {
   }
   const { createClient } = await import('@supabase/supabase-js')
   const sb = createClient(sbUrl, sbKey) as any
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
   try {
     // The webhook body's own InvoiceId/status fields are never trusted — a
     // forged POST could otherwise mark any purchase paid. verifyAndFinalize
     // re-derives the reference from our DB and re-verifies live with the
     // gateway regardless of what this payload claims. Account
-    // creation/linking runs here too (not just on the GET redirect path) so
-    // a purchase confirmed asynchronously — after the customer's browser
-    // already left — still ends up fully provisioned and library-ready.
-    const result = await verifyAndFinalize(purchaseId, gateway, sb, null)
+    // creation/linking AND the confirmation email/download-token minting run
+    // here too (not just on the GET redirect path) so a purchase confirmed
+    // asynchronously — after the customer's browser already left — still
+    // ends up fully provisioned and the customer still gets their email.
+    const result = await verifyAndFinalize(purchaseId, gateway, sb, null, appUrl)
     console.log(`[payment/callback POST] webhook processed — purchase=${purchaseId} status=${result.status}${result.userId ? ` user_id=${result.userId}` : ''}`)
     return NextResponse.json({ received: true, status: result.status })
   } catch (err: any) {

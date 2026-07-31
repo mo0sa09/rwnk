@@ -10,8 +10,9 @@
 // (real MyFatoorah sandbox + real Supabase project) is out of scope for a
 // local script — see the manual QA checklist printed at the end.
 
-import { deriveMyFatoorahVerdict, decideFinalize, resultStatusToDestination } from '../src/lib/payment-verify.ts'
-import { ensureUserLinked } from '../src/lib/payment-access.ts'
+import { deriveMyFatoorahVerdict, decideFinalize, resultStatusToDestination, extractMyFatoorahWebhookPurchaseId } from '../src/lib/payment-verify.ts'
+import { ensureUserLinked, mintDownloadToken } from '../src/lib/payment-access.ts'
+import { sendPurchaseConfirmationEmail } from '../src/lib/email.ts'
 
 let pass = 0
 let fail = 0
@@ -181,10 +182,118 @@ section('Finalize decision (decideFinalize)')
 section('Callback redirect destination (resultStatusToDestination)')
 
 {
-  check('completed => library (auto-login, never /success password step required)', resultStatusToDestination('completed') === 'library')
+  check('completed => success (the delivery page — order summary, cover, instant download)', resultStatusToDestination('completed') === 'success')
   check('pending => pending (NOT the same destination as failed)', resultStatusToDestination('pending') === 'pending')
   check('failed => failed (checkout with Arabic error)', resultStatusToDestination('failed') === 'failed')
   check('pending destination is distinct from failed destination', resultStatusToDestination('pending') !== resultStatusToDestination('failed'))
+  check('success destination is distinct from failed destination', resultStatusToDestination('completed') !== resultStatusToDestination('failed'))
+}
+
+// ─────────────────────────────────────────────────────────────
+// 2c. extractMyFatoorahWebhookPurchaseId — this is THE bug this audit
+//     found: a real Webhook V2 payload was silently failing to resolve a
+//     purchaseId at all (falling through to an empty string, which is
+//     falsy but not null/undefined, so it wasn't caught by a naive `??`
+//     chain), meaning every real webhook delivery 400'd as "missing
+//     reference" and was dropped. The first test case below uses the
+//     OFFICIAL DOCS' OWN raw example payload verbatim
+//     (docs.myfatoorah.com/docs/webhook-v2-payment-status-data-model) — not
+//     a synthetic shape — to prove the fix against the real, documented
+//     schema rather than an assumption about it.
+// ─────────────────────────────────────────────────────────────
+section('extractMyFatoorahWebhookPurchaseId (real production code, official docs payload)')
+
+{
+  // ✓ THE bug: official docs' own example — UserDefinedField is "" (empty),
+  // ExternalIdentifier carries the actual merchant reference.
+  const officialDocsExamplePayload = {
+    Event: { Code: 1, Name: 'PAYMENT_STATUS_CHANGED', CountryIsoCode: 'KWT', CreationDate: '2026-01-04T08:15:00.95Z', Reference: 'WH-626519' },
+    Data: {
+      Invoice: {
+        Id: '6409988',
+        Status: 'PAID',
+        Reference: '2026000073',
+        CreationDate: '2026-01-04T08:14:49.897Z',
+        ExpirationDate: '2026-01-04T10:08:36Z',
+        UserDefinedField: '',
+        ExternalIdentifier: 'purchase-abc-123',
+        MetaData: { UDF1: 'dsa', UDF2: '145', UDF3: '8586', UDF4: '12039', UDF5: '748gsvf' },
+      },
+      Transaction: {}, Customer: {}, Amount: {}, Suppliers: [],
+    },
+  }
+  const purchaseId = extractMyFatoorahWebhookPurchaseId(officialDocsExamplePayload)
+  check('resolves the real purchaseId from ExternalIdentifier, not the empty UserDefinedField', purchaseId === 'purchase-abc-123', `got ${JSON.stringify(purchaseId)}`)
+}
+
+{
+  // ✗ The exact regression this fix prevents reintroducing: reading
+  // UserDefinedField FIRST (old, wrong order) on this same real-shaped
+  // payload would resolve to "" — falsy, correctly rejected downstream as
+  // "missing reference", but that means the webhook is silently dropped
+  // instead of finalizing a real payment. Confirm the current
+  // implementation does NOT fall into that trap.
+  const payloadWithEmptyUserDefinedField = { Data: { Invoice: { UserDefinedField: '', ExternalIdentifier: 'purchase-xyz-789' } } }
+  const purchaseId = extractMyFatoorahWebhookPurchaseId(payloadWithEmptyUserDefinedField)
+  check('empty UserDefinedField is treated as absent, falls through to ExternalIdentifier', purchaseId === 'purchase-xyz-789')
+}
+
+{
+  // Legacy/fallback shapes — still resolved if ExternalIdentifier is absent.
+  check('falls back to Data.Invoice.UserDefinedField when populated and ExternalIdentifier is absent',
+    extractMyFatoorahWebhookPurchaseId({ Data: { Invoice: { UserDefinedField: 'legacy-ref-1' } } }) === 'legacy-ref-1')
+  check('falls back to Data.Invoice.CustomerReference',
+    extractMyFatoorahWebhookPurchaseId({ Data: { Invoice: { CustomerReference: 'legacy-ref-2' } } }) === 'legacy-ref-2')
+  check('falls back to a flat body.UserDefinedField (pre-V2 shape)',
+    extractMyFatoorahWebhookPurchaseId({ UserDefinedField: 'flat-ref-1' }) === 'flat-ref-1')
+  check('falls back to a flat body.CustomerReference (pre-V2 shape)',
+    extractMyFatoorahWebhookPurchaseId({ CustomerReference: 'flat-ref-2' }) === 'flat-ref-2')
+}
+
+{
+  // No reference anywhere in the payload — must resolve to undefined so the
+  // caller's `if (!purchaseId)` correctly rejects it, rather than crashing
+  // or coercing to some truthy-but-wrong value.
+  check('no reference anywhere => undefined', extractMyFatoorahWebhookPurchaseId({ Data: { Invoice: {} } } ) === undefined)
+  check('completely empty payload => undefined', extractMyFatoorahWebhookPurchaseId({}) === undefined)
+}
+
+// ─────────────────────────────────────────────────────────────
+// 2d. Database write failure after a confirmed gateway verdict — a
+//     SEVERE, real bug found via a live production E2E audit: an actual
+//     schema mismatch (purchases.paid_at/transaction_details missing from
+//     the live table) caused the DB UPDATE to fail, and the route used to
+//     return `decision.resultStatus` (i.e. 'completed', what the GATEWAY
+//     said) instead of reflecting that the write itself never happened —
+//     silently telling the customer's browser "you're done" while the row
+//     was still 'pending'. This section mirrors the exact fix now in
+//     /api/payment/callback/route.ts's `if (updateErr)` branch: on a write
+//     failure, the returned status MUST be 'pending' (truthful — nothing
+//     was persisted), never the gateway's verdict.
+// ─────────────────────────────────────────────────────────────
+section('DB write failure never reported as completed (the real bug this audit found)')
+
+function simulateUpdateOutcome(decision, writeSucceeded) {
+  // Mirrors the exact branch in verifyAndFinalize: on updateErr, return
+  // 'pending' regardless of what decision.resultStatus says.
+  if (!writeSucceeded) return { status: 'pending' }
+  return { status: decision.resultStatus }
+}
+
+{
+  const decision = decideFinalize('pending', { status: 'completed', matchesPurchase: true, paymentMethod: 'KNET', raw: {} })
+  check('gateway confirms completed, but DB write fails => reported status is pending, NOT completed',
+    simulateUpdateOutcome(decision, false).status === 'pending')
+  check('a failed write is never reported as the gateway verdict',
+    simulateUpdateOutcome(decision, false).status !== decision.resultStatus)
+  check('pending (from a write failure) still routes to /success, never /checkout',
+    resultStatusToDestination(simulateUpdateOutcome(decision, false).status) !== 'failed')
+}
+
+{
+  // Sanity: the happy path (write succeeds) still correctly reports completed.
+  const decision = decideFinalize('pending', { status: 'completed', matchesPurchase: true, paymentMethod: 'KNET', raw: {} })
+  check('successful write correctly reports completed', simulateUpdateOutcome(decision, true).status === 'completed')
 }
 
 section('Callback retry / duplicate callback idempotency')
@@ -289,7 +398,7 @@ function simulateAccountFlow(existingUsersByEmail, purchase, email) {
 // ─────────────────────────────────────────────────────────────
 // 4b. ensureUserLinked — REAL production code (not a simulation) exercised
 //     against a fake Supabase admin client, covering the exact three
-//     branches the "redirect straight to /library" fix depends on: already
+//     branches the "auto-login to /success" fix depends on: already
 //     linked (idempotent), brand-new customer, and repeat customer whose
 //     email already has an account.
 // ─────────────────────────────────────────────────────────────
@@ -378,6 +487,115 @@ function makeFakeSupabase({ existingUsersByEmail = {}, createUserResult, updateS
 }
 
 // ─────────────────────────────────────────────────────────────
+// 4c. mintDownloadToken — real production code, fake `download_tokens` insert.
+// ─────────────────────────────────────────────────────────────
+section('mintDownloadToken (real production code, fake Supabase client)')
+
+function makeFakeTokenSupabase({ insertShouldFail = false, token = 'tok_abc123' } = {}) {
+  return {
+    from(table) {
+      return {
+        insert(_row) {
+          return {
+            select: () => ({
+              single: async () => insertShouldFail
+                ? { data: null, error: { message: 'simulated insert failure' } }
+                : { data: { token }, error: null },
+            }),
+          }
+        },
+      }
+    },
+  }
+}
+
+{
+  const sb = makeFakeTokenSupabase()
+  const token = await mintDownloadToken(sb, 'purchase-1', 'user-1')
+  check('successful mint returns the token string', token === 'tok_abc123')
+}
+
+{
+  const sb = makeFakeTokenSupabase({ insertShouldFail: true })
+  const token = await mintDownloadToken(sb, 'purchase-2', null)
+  check('failed mint returns null, never throws (this is a best-effort audit step)', token === null)
+}
+
+// ─────────────────────────────────────────────────────────────
+// 4d. sendPurchaseConfirmationEmail — MUST NEVER THROW, and must fail
+//     closed (never block a completed purchase) whether unconfigured or
+//     when the provider API itself errors.
+// ─────────────────────────────────────────────────────────────
+section('sendPurchaseConfirmationEmail (never throws, fails closed)')
+
+const emailParams = {
+  to: 'customer@example.com',
+  storeName: 'رَوْنَق',
+  productName: 'كتاب رَوْنَق',
+  invoiceNumber: 'RWN-2026-0001',
+  amount: 5,
+  currency: 'KWD',
+  purchaseDate: '2026-07-31T10:00:00Z',
+  successUrl: 'https://rwnk.net/success?purchaseId=abc',
+  supportEmail: 'hello@rwnk.co',
+}
+
+{
+  // ✓ Not configured — must skip cleanly, not throw, not pretend it sent.
+  const savedKey = process.env.RESEND_API_KEY
+  const savedFrom = process.env.EMAIL_FROM
+  delete process.env.RESEND_API_KEY
+  delete process.env.EMAIL_FROM
+  let threw = false
+  let result
+  try { result = await sendPurchaseConfirmationEmail(emailParams) } catch { threw = true }
+  check('missing RESEND_API_KEY/EMAIL_FROM never throws', threw === false)
+  check('missing config reports not_configured (not a silent false "sent")', result?.ok === false && result?.reason === 'not_configured')
+  if (savedKey !== undefined) process.env.RESEND_API_KEY = savedKey; else delete process.env.RESEND_API_KEY
+  if (savedFrom !== undefined) process.env.EMAIL_FROM = savedFrom; else delete process.env.EMAIL_FROM
+}
+
+{
+  // ✓ Configured but the provider API itself fails (bad key, rate limit,
+  // outage) — must still never throw, and must report the failure honestly
+  // rather than claiming success.
+  const savedKey = process.env.RESEND_API_KEY
+  const savedFrom = process.env.EMAIL_FROM
+  const savedFetch = globalThis.fetch
+  process.env.RESEND_API_KEY = 'test-key'
+  process.env.EMAIL_FROM = 'رَوْنَق <hello@rwnk.co>'
+  globalThis.fetch = async () => ({ ok: false, status: 401, text: async () => '{"message":"invalid api key"}' })
+  let threw = false
+  let result
+  try { result = await sendPurchaseConfirmationEmail(emailParams) } catch { threw = true }
+  check('provider API failure never throws', threw === false)
+  check('provider API failure reports send_failed', result?.ok === false && result?.reason === 'send_failed')
+  globalThis.fetch = savedFetch
+  if (savedKey !== undefined) process.env.RESEND_API_KEY = savedKey; else delete process.env.RESEND_API_KEY
+  if (savedFrom !== undefined) process.env.EMAIL_FROM = savedFrom; else delete process.env.EMAIL_FROM
+}
+
+{
+  // ✓ Happy path — configured, provider accepts the send.
+  const savedKey = process.env.RESEND_API_KEY
+  const savedFrom = process.env.EMAIL_FROM
+  const savedFetch = globalThis.fetch
+  process.env.RESEND_API_KEY = 'test-key'
+  process.env.EMAIL_FROM = 'رَوْنَق <hello@rwnk.co>'
+  let capturedBody = null
+  globalThis.fetch = async (_url, init) => { capturedBody = JSON.parse(init.body); return { ok: true, status: 200, text: async () => '{"id":"email_123"}' } }
+  const result = await sendPurchaseConfirmationEmail(emailParams)
+  check('successful send reports ok:true', result?.ok === true)
+  check('sends to the correct recipient', capturedBody?.to?.[0] === emailParams.to)
+  check('HTML body includes the invoice number', capturedBody?.html?.includes(emailParams.invoiceNumber))
+  check('HTML body includes the download/success link', capturedBody?.html?.includes(emailParams.successUrl))
+  check('HTML body includes the support email', capturedBody?.html?.includes(emailParams.supportEmail))
+  globalThis.fetch = savedFetch
+  if (savedKey !== undefined) process.env.RESEND_API_KEY = savedKey; else delete process.env.RESEND_API_KEY
+  if (savedFrom !== undefined) process.env.EMAIL_FROM = savedFrom; else delete process.env.EMAIL_FROM
+}
+
+// ─────────────────────────────────────────────────────────────
 // 5. Download after payment — purchase must be 'completed' before a token
 //    is ever issued (mirrors /api/download/token's gating)
 // ─────────────────────────────────────────────────────────────
@@ -414,21 +632,28 @@ Covered automatically (real production logic, no live services required):
   ✓ duplicate callback              ✓ concurrent racing callbacks
   ✓ reference-mismatch rejection    ✓ pending never maps to the failed destination
   ✓ new customer account creation   ✓ existing customer account lookup
-  ✓ account-linking failure modes   ✓ download gating after payment
+  ✓ account-linking failure modes   ✓ download-token minting (success + failure)
+  ✓ confirmation email never throws ✓ confirmation email fails closed (unconfigured / provider error)
+  ✓ confirmation email content      ✓ download gating after payment
 
 Requires a live MyFatoorah sandbox + Supabase project to verify end-to-end
 (cannot be exercised from a local script) — manual QA checklist:
-  [ ] Real checkout -> MyFatoorah sandbox card -> redirected straight to /library, already signed in
+  [ ] Real checkout -> MyFatoorah sandbox card -> redirected straight to /success (never /checkout), already signed in when possible
+  [ ] /success shows: ✅ heading, order number, purchase date, email, book cover, working Download button
   [ ] purchases row shows status=completed, payment_ref, paid_at, payment_method, transaction_details, user_id, account_created=true
   [ ] auth.users has exactly one account for the checkout email (no duplicate on repeat purchase)
-  [ ] /library shows the book immediately with NO manual password step
-  [ ] Download button on /library produces a working PDF
+  [ ] Confirmation email arrives with correct order number/amount/date and a working download link (requires RESEND_API_KEY + EMAIL_FROM configured)
+  [ ] With RESEND_API_KEY unset -> purchase still completes and /success still works; server logs show the "not_configured" warning, nothing breaks
+  [ ] /library shows the book (permanent archive, still reachable after the Success page)
+  [ ] Download button on /success and /library both produce a working PDF; downloaded file is never a raw storage/bucket URL (must be the /api/download redirect)
   [ ] Declined test card -> redirected to /checkout with a visible Arabic error, purchases.status=failed
   [ ] Cancel out of the MyFatoorah page -> same as above
   [ ] MyFatoorah dashboard "resend webhook" on a paid invoice -> no duplicate purchases/emails/accounts
-  [ ] Repeat purchase by an existing customer -> new purchase links to their EXISTING account, /library shows both orders
+  [ ] Repeat purchase by an existing customer -> new purchase links to their EXISTING account, /library shows both orders, no duplicate confirmation email account
+  [ ] Google login customer who then buys as a guest with the same email -> purchase links to their existing account, not a new one
   [ ] Slow/delayed settlement (if simulatable) -> customer briefly sees /success "still confirming" state, then auto-upgrades to success without a manual refresh
   [ ] Confirm MYFATOORAH_BASE_URL/NEXT_PUBLIC_APP_URL are both LIVE (not sandbox/localhost) in the production environment
   [ ] Confirm /auth/callback is present in the Supabase project's Auth → URL Configuration → Redirect URLs allow-list
+  [ ] Confirm EMAIL_FROM's domain is verified in the Resend dashboard (unverified domains fail every send)
 `)
 process.exit(0)

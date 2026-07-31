@@ -1,6 +1,9 @@
 // Post-payment account provisioning — turns a `completed` purchase into an
-// actually-accessible library entry for the customer, with NO manual
+// actually-accessible order for the customer, with NO manual
 // "create a password" step required (guest checkout never asks for one).
+// The Success page is the delivery point (works fully for a signed-out
+// guest via the purchaseId alone); auto-login here is a UX upgrade on top
+// of that, never a requirement for reaching the purchased book.
 //
 // Split out from /api/payment/callback so the create-vs-link decision and
 // the magic-link minting are independently testable/reviewable, and so the
@@ -94,15 +97,22 @@ export async function ensureUserLinked(
 
 // Mints a one-time sign-in link for a browser that just landed back from the
 // gateway, so it can be redirected straight through Supabase's own
-// verification endpoint and land on /library already authenticated — reuses
-// the exact same GoTrue link-verification mechanism (redirect_to → our
-// existing /auth/callback?code=... route) that Google login and password
-// reset already rely on in this codebase, so no new auth code path is
-// introduced. Returns null (never throws) on any failure — the caller must
-// fall back to a safe non-broken destination (/success) rather than losing
-// the customer on a 500 after they've already been charged.
-export async function generateLibraryMagicLink(sb: any, email: string, appUrl: string): Promise<string | null> {
-  const redirectTo = `${appUrl}/auth/callback?next=/library`
+// verification endpoint and land on `redirectPath` already authenticated —
+// reuses the exact same GoTrue link-verification mechanism (redirect_to →
+// our existing /auth/callback?code=... route) that Google login and
+// password reset already rely on in this codebase, so no new auth code path
+// is introduced. Returns null (never throws) on any failure — the caller
+// must fall back to a plain, unauthenticated redirect to the same
+// destination rather than losing the customer on a 500 after they've
+// already been charged (the Success page works fully signed-out).
+//
+// `redirectPath` may itself contain a query string (e.g.
+// "/success?purchaseId=..."), so it's URL-encoded before being embedded as
+// the `next` param — GoTrue appends its own `&code=...` onto `redirectTo`
+// after verification, and without encoding, `next`'s own `?` would be
+// mistaken for the start of a second, colliding query string.
+export async function generateAutoLoginLink(sb: any, email: string, redirectPath: string, appUrl: string): Promise<string | null> {
+  const redirectTo = `${appUrl}/auth/callback?next=${encodeURIComponent(redirectPath)}`
   const { data, error } = await sb.auth.admin.generateLink({
     type: 'magiclink',
     email,
@@ -114,4 +124,29 @@ export async function generateLibraryMagicLink(sb: any, email: string, appUrl: s
   }
   console.log(`[payment/access] minted auto-login link for ${email} → redirect target ${redirectTo}`)
   return data.properties.action_link as string
+}
+
+// Mints a download token immediately at payment-completion time, fulfilling
+// the "generate secure download token" step of the payment pipeline as its
+// own explicit, logged action. Deliberately NOT returned to the browser via
+// URL or embedded in the confirmation email — a live one-time download
+// token sitting in a redirect chain or an inbox is a needless exposure
+// (browser history, referrer headers, email forwarding) for a token that
+// expires in 15 minutes anyway. The Success page's Download button mints
+// its own fresh token on click via the existing /api/download/token flow,
+// which remains the sole authoritative path a customer actually uses to
+// download — this one exists for pipeline-completeness/audit only, and
+// silently expires unused if never redeemed (minting a token has zero
+// effect on downloads_used/downloads_limit; only redeeming one at
+// /api/download does).
+export async function mintDownloadToken(sb: any, purchaseId: string, userId: string | null): Promise<string | null> {
+  const { data, error } = await sb.from('download_tokens')
+    .insert({ purchase_id: purchaseId, user_id: userId })
+    .select('token').single()
+  if (error || !data) {
+    console.error(`[payment/access] purchase ${purchaseId} — failed to mint download token: ${error?.message ?? 'insert returned no row'}`)
+    return null
+  }
+  console.log(`[payment/access] purchase ${purchaseId} — minted download token (user=${userId ?? 'guest'})`)
+  return data.token as string
 }

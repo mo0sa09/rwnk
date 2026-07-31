@@ -3,8 +3,10 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import Navbar from '@/components/layout/Navbar'
 import { C } from '@/lib/theme'
+import { getStoreSettings, DEFAULT_SETTINGS, type StoreSettings } from '@/lib/store-settings'
 import {
   IconCircleCheck, IconDownload, IconArrowRight,
   IconFileText, IconLock, IconUser, IconAlertTriangle,
@@ -19,6 +21,7 @@ interface PurchaseInfo {
   status: string
   downloads_limit: number
   downloads_used: number
+  created_at: string
 }
 
 type Step = 'loading' | 'not_found' | 'pending' | 'success' | 'done'
@@ -26,6 +29,7 @@ type Step = 'loading' | 'not_found' | 'pending' | 'success' | 'done'
 export default function SuccessPage() {
   const [step, setStep]        = useState<Step>('loading')
   const [info, setInfo]        = useState<PurchaseInfo | null>(null)
+  const [settings, setSettings] = useState<StoreSettings>(DEFAULT_SETTINGS)
   const [pwd, setPwd]          = useState('')
   const [pwd2, setPwd2]        = useState('')
   const [pwLoading, setPwLoad] = useState(false)
@@ -39,6 +43,7 @@ export default function SuccessPage() {
   const inpS: React.CSSProperties = { width:'100%', height:44, background:'#FAFAFA', border:`1px solid ${C.border}`, borderRadius:11, padding:'0 14px', fontSize:13, color:C.text1, outline:'none', fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif", direction:'ltr', transition:'all .2s' }
 
   useEffect(() => {
+    getStoreSettings().then(setSettings)
     async function load() {
       const purchaseId = new URLSearchParams(window.location.search).get('purchaseId')
       if (!purchaseId) { setStep('not_found'); return }
@@ -168,7 +173,20 @@ export default function SuccessPage() {
               <IconCircleCheck size={30} color="#085041" />
             </div>
             <h1 style={{ fontSize:23, fontWeight:900, marginBottom:6, color:C.text1 }}>تم الدفع بنجاح</h1>
-            <p style={{ fontSize:13, color:C.text3, lineHeight:1.65 }}>كتاب رَوْنَق الآن ملكك — يمكنك تحميله مباشرة</p>
+            <p style={{ fontSize:13, color:C.text3, lineHeight:1.65 }}>{settings.product_name} الآن ملكك — يمكنك تحميله مباشرة</p>
+          </div>
+
+          {/* Book cover */}
+          <div style={{ display:'flex', justifyContent:'center', marginBottom:20 }}>
+            {settings.product_image_url ? (
+              <div style={{ position:'relative', width:96, height:126, borderRadius:12, overflow:'hidden', boxShadow:'0 8px 24px rgba(103,71,178,.25)', flexShrink:0 }}>
+                <Image src={settings.product_image_url} alt={settings.product_name} fill sizes="96px" style={{ objectFit:'cover' }} />
+              </div>
+            ) : (
+              <div style={{ width:96, height:126, borderRadius:12, flexShrink:0, background:'linear-gradient(145deg,#6747B2,#8b6dd4)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:6, boxShadow:'0 8px 24px rgba(103,71,178,.3)' }}>
+                <span style={{ fontSize:13, fontWeight:900, color:'#fff' }}>رَوْنَق</span>
+              </div>
+            )}
           </div>
 
           {/* Order summary */}
@@ -176,10 +194,11 @@ export default function SuccessPage() {
             <div style={{ background:C.primaryLight, border:`1px solid ${C.border}`, borderRadius:12, padding:'12px 16px', marginBottom:20 }}>
               {[
                 { label:'رقم الطلب',     value: info.invoice_number ?? '—' },
+                { label:'تاريخ الشراء',  value: info.created_at ? new Date(info.created_at).toLocaleDateString('ar-KW', { year:'numeric', month:'long', day:'numeric' }) : '—' },
                 { label:'البريد',        value: info.email ?? '—'   },
                 { label:'المبلغ المدفوع',value: `${info.amount} ${info.currency === 'KWD' ? 'د.ك' : info.currency}`, color: C.primary },
-              ].map((r,i) => (
-                <div key={i} style={{ display:'flex', flexWrap:'wrap', justifyContent:'space-between', gap:'2px 12px', fontSize:12, marginBottom:i<2?7:0, direction:'rtl' }}>
+              ].map((r,i,a) => (
+                <div key={i} style={{ display:'flex', flexWrap:'wrap', justifyContent:'space-between', gap:'2px 12px', fontSize:12, marginBottom:i<a.length-1?7:0, direction:'rtl' }}>
                   <span style={{ color:C.text3, flexShrink:0 }}>{r.label}</span>
                   <span style={{ fontWeight:700, color: r.color ?? C.text1, wordBreak:'break-word', textAlign:'left' }}>{r.value}</span>
                 </div>

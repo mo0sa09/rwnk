@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseServerEnv } from '@/lib/env'
+import { mintDownloadToken } from '@/lib/payment-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -59,15 +60,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'LIMIT_REACHED' }, { status: 403 })
   }
 
-  const { data: tokenRow, error: tokenErr } = await sb.from('download_tokens')
-    .insert({ purchase_id: purchase.id, user_id: sessionUserId ?? purchase.user_id ?? null })
-    .select('token').single()
-
-  if (tokenErr || !tokenRow) {
-    console.error(`[download/token] failed to create token for purchase ${purchaseId}: ${tokenErr?.message ?? 'insert returned no row'}`)
+  const token = await mintDownloadToken(sb, purchase.id, sessionUserId ?? purchase.user_id ?? null)
+  if (!token) {
+    console.error(`[download/token] failed to create token for purchase ${purchaseId}`)
     return NextResponse.json({ error: 'تعذّر إنشاء رابط التحميل' }, { status: 500 })
   }
 
   console.log(`[download/token] issued token for purchase ${purchaseId} (user=${sessionUserId ?? purchase.user_id ?? 'guest'})`)
-  return NextResponse.json({ token: tokenRow.token })
+  return NextResponse.json({ token })
 }
