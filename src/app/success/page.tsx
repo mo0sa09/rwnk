@@ -55,6 +55,36 @@ export default function SuccessPage() {
     load()
   }, [])
 
+  // A "pending" landing here (instead of a hard failure) means the
+  // callback couldn't yet confirm the payment with the gateway — often just
+  // bank/KNET settlement lagging a beat behind the redirect. Rather than
+  // leaving the customer stuck on a static "still confirming" screen after
+  // money may have already left their account, keep re-checking in the
+  // background and upgrade to the success view the moment the purchase
+  // actually completes — no manual refresh required.
+  useEffect(() => {
+    if (step !== 'pending' || !info?.id) return
+    let cancelled = false
+    let attempts = 0
+    const maxAttempts = 15 // ~90s total at 6s apart — comfortably covers settlement lag without polling forever
+    const interval = setInterval(async () => {
+      attempts++
+      try {
+        const res = await fetch(`/api/purchase-status?purchaseId=${encodeURIComponent(info.id)}`)
+        const json = await res.json()
+        if (cancelled) return
+        if (res.ok && json.data?.status === 'completed') {
+          setInfo(json.data)
+          setStep('success')
+          clearInterval(interval)
+        } else if (attempts >= maxAttempts) {
+          clearInterval(interval)
+        }
+      } catch { /* transient network error — just try again on the next tick */ }
+    }, 6000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [step, info?.id])
+
   async function handleDownload() {
     if (!info?.id) return
     setDlLoad(true); setDlError('')

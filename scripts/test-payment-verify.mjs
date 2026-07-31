@@ -10,7 +10,8 @@
 // (real MyFatoorah sandbox + real Supabase project) is out of scope for a
 // local script — see the manual QA checklist printed at the end.
 
-import { deriveMyFatoorahVerdict, decideFinalize } from '../src/lib/payment-verify.ts'
+import { deriveMyFatoorahVerdict, decideFinalize, resultStatusToDestination } from '../src/lib/payment-verify.ts'
+import { ensureUserLinked } from '../src/lib/payment-access.ts'
 
 let pass = 0
 let fail = 0
@@ -168,6 +169,24 @@ section('Finalize decision (decideFinalize)')
   check('gateway still pending => wait_pending, no update', d.action === 'wait_pending' && d.update === undefined)
 }
 
+// ─────────────────────────────────────────────────────────────
+// 2b. Redirect destination mapping (resultStatusToDestination) — this IS
+//     the production bug: a successful payment that read back as anything
+//     other than a hard 'completed' must NEVER land on the same
+//     "/checkout?error=payment_failed" destination as a genuinely
+//     declined/cancelled payment. 'pending' has its own distinct
+//     destination precisely so a settlement-lag race window never gets
+//     mislabeled as a failure.
+// ─────────────────────────────────────────────────────────────
+section('Callback redirect destination (resultStatusToDestination)')
+
+{
+  check('completed => library (auto-login, never /success password step required)', resultStatusToDestination('completed') === 'library')
+  check('pending => pending (NOT the same destination as failed)', resultStatusToDestination('pending') === 'pending')
+  check('failed => failed (checkout with Arabic error)', resultStatusToDestination('failed') === 'failed')
+  check('pending destination is distinct from failed destination', resultStatusToDestination('pending') !== resultStatusToDestination('failed'))
+}
+
 section('Callback retry / duplicate callback idempotency')
 
 {
@@ -268,6 +287,97 @@ function simulateAccountFlow(existingUsersByEmail, purchase, email) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// 4b. ensureUserLinked — REAL production code (not a simulation) exercised
+//     against a fake Supabase admin client, covering the exact three
+//     branches the "redirect straight to /library" fix depends on: already
+//     linked (idempotent), brand-new customer, and repeat customer whose
+//     email already has an account.
+// ─────────────────────────────────────────────────────────────
+section('ensureUserLinked (real production code, fake Supabase client)')
+
+function makeFakeSupabase({ existingUsersByEmail = {}, createUserResult, updateShouldFail = false } = {}) {
+  const updates = []
+  return {
+    _updates: updates,
+    auth: {
+      admin: {
+        async createUser({ email }) {
+          if (createUserResult) return createUserResult
+          if (email in existingUsersByEmail) {
+            return { data: null, error: { message: 'A user with this email address has already been registered' } }
+          }
+          return { data: { user: { id: `new-${email}` } }, error: null }
+        },
+        async listUsers({ page }) {
+          if (page > 1) return { data: { users: [] }, error: null }
+          const users = Object.entries(existingUsersByEmail).map(([email, id]) => ({ id, email }))
+          return { data: { users }, error: null }
+        },
+      },
+    },
+    from(table) {
+      return {
+        update(patch) {
+          return {
+            eq: async (col, val) => {
+              updates.push({ table, patch, col, val })
+              if (updateShouldFail) return { error: { message: 'simulated DB failure' } }
+              return { error: null }
+            },
+          }
+        },
+      }
+    },
+  }
+}
+
+{
+  // ✓ Already linked — must be a pure read, zero auth admin API calls or writes.
+  const sb = makeFakeSupabase()
+  const result = await ensureUserLinked(sb, { id: 'p1', user_id: 'already-linked-user', email: 'a@example.com' })
+  check('already-linked purchase short-circuits with no writes', sb._updates.length === 0)
+  check('already-linked purchase returns the existing user_id unchanged', result?.userId === 'already-linked-user')
+}
+
+{
+  // ✓ Brand-new customer — createUser succeeds, purchase gets linked to the new id.
+  const sb = makeFakeSupabase()
+  const result = await ensureUserLinked(sb, { id: 'p2', user_id: null, email: 'brand-new@example.com' })
+  check('new customer gets a freshly created account', result?.isNewUser === true && result?.userId === 'new-brand-new@example.com')
+  check('new customer purchase is written with user_id + account_created', sb._updates.length === 1 && sb._updates[0].patch.account_created === true)
+}
+
+{
+  // ✓ Repeat customer — createUser reports "already registered", falls back
+  // to listUsers-by-email instead of leaving the purchase unlinked.
+  const sb = makeFakeSupabase({ existingUsersByEmail: { 'returning@example.com': 'existing-user-id' } })
+  const result = await ensureUserLinked(sb, { id: 'p3', user_id: null, email: 'returning@example.com' })
+  check('repeat customer resolves to their EXISTING account, not a duplicate', result?.isNewUser === false && result?.userId === 'existing-user-id')
+  check('repeat customer purchase links to the existing account id', sb._updates[0]?.patch.user_id === 'existing-user-id')
+}
+
+{
+  // ✗ Unexpected auth error (not "already registered") — must fail closed
+  // (return null) rather than silently leaving a payment access-provisioned
+  // with a wrong/partial account. The purchase itself stays 'completed'
+  // regardless (that decision is made earlier, in decideFinalize) — this
+  // only governs whether auto-login/library-linking succeeded.
+  const sb = makeFakeSupabase({ createUserResult: { data: null, error: { message: 'Auth service is temporarily unavailable' } } })
+  const result = await ensureUserLinked(sb, { id: 'p4', user_id: null, email: 'unlucky@example.com' })
+  check('unexpected auth error => null (caller falls back to /success, not a crash)', result === null)
+  check('unexpected auth error writes nothing to purchases', sb._updates.length === 0)
+}
+
+{
+  // ✗ DB write itself fails after a successful account resolution — must
+  // still report failure (null) so the callback route falls back to
+  // /success instead of claiming a link that didn't actually persist.
+  const sb = makeFakeSupabase({ updateShouldFail: true })
+  const result = await ensureUserLinked(sb, { id: 'p5', user_id: null, email: 'db-hiccup@example.com' })
+  check('DB write failure => null (never reports a link that did not persist)', result === null)
+}
+
+// ─────────────────────────────────────────────────────────────
 // 5. Download after payment — purchase must be 'completed' before a token
 //    is ever issued (mirrors /api/download/token's gating)
 // ─────────────────────────────────────────────────────────────
@@ -302,17 +412,23 @@ Covered automatically (real production logic, no live services required):
   ✓ successful payment              ✓ failed payment
   ✓ cancelled payment               ✓ callback retry
   ✓ duplicate callback              ✓ concurrent racing callbacks
-  ✓ reference-mismatch rejection    ✓ new customer linking
-  ✓ existing customer linking       ✓ download gating after payment
+  ✓ reference-mismatch rejection    ✓ pending never maps to the failed destination
+  ✓ new customer account creation   ✓ existing customer account lookup
+  ✓ account-linking failure modes   ✓ download gating after payment
 
 Requires a live MyFatoorah sandbox + Supabase project to verify end-to-end
 (cannot be exercised from a local script) — manual QA checklist:
-  [ ] Real checkout -> MyFatoorah sandbox card -> redirected to /success (not /checkout)
-  [ ] purchases row shows status=completed, payment_ref, paid_at, payment_method, transaction_details
-  [ ] /library shows the book immediately after creating a password on /success
-  [ ] Download button on /success and /library both produce a working PDF
-  [ ] Declined test card -> redirected to /checkout with a visible error, purchases.status=failed
+  [ ] Real checkout -> MyFatoorah sandbox card -> redirected straight to /library, already signed in
+  [ ] purchases row shows status=completed, payment_ref, paid_at, payment_method, transaction_details, user_id, account_created=true
+  [ ] auth.users has exactly one account for the checkout email (no duplicate on repeat purchase)
+  [ ] /library shows the book immediately with NO manual password step
+  [ ] Download button on /library produces a working PDF
+  [ ] Declined test card -> redirected to /checkout with a visible Arabic error, purchases.status=failed
   [ ] Cancel out of the MyFatoorah page -> same as above
-  [ ] MyFatoorah dashboard "resend webhook" on a paid invoice -> no duplicate purchases/emails
+  [ ] MyFatoorah dashboard "resend webhook" on a paid invoice -> no duplicate purchases/emails/accounts
+  [ ] Repeat purchase by an existing customer -> new purchase links to their EXISTING account, /library shows both orders
+  [ ] Slow/delayed settlement (if simulatable) -> customer briefly sees /success "still confirming" state, then auto-upgrades to success without a manual refresh
+  [ ] Confirm MYFATOORAH_BASE_URL/NEXT_PUBLIC_APP_URL are both LIVE (not sandbox/localhost) in the production environment
+  [ ] Confirm /auth/callback is present in the Supabase project's Auth → URL Configuration → Redirect URLs allow-list
 `)
 process.exit(0)

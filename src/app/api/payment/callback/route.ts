@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseServerEnv } from '@/lib/env'
-import { deriveMyFatoorahVerdict, decideFinalize, type GatewayStatus } from '@/lib/payment-verify'
+import { deriveMyFatoorahVerdict, decideFinalize, resultStatusToDestination, type GatewayStatus } from '@/lib/payment-verify'
+import { ensureUserLinked, generateLibraryMagicLink } from '@/lib/payment-access'
 
 export const dynamic = 'force-dynamic'
+
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
 
 interface GatewayResult {
   status: GatewayStatus
@@ -66,6 +71,26 @@ async function checkMyFatoorah(key: string, keyType: 'InvoiceId' | 'PaymentId', 
   return { status: verdict.status, matchesPurchase, paymentMethod: verdict.paymentMethod, raw: data.Data ?? null }
 }
 
+// Bank/KNET settlement on MyFatoorah's side can lag the redirect by a
+// second or two — GetPaymentStatus called the instant the customer's
+// browser lands back on our callback can still legitimately read
+// InvoiceStatus=Pending for a payment that finishes settling moments later.
+// Retrying a SHORT, bounded number of times only while the verdict is
+// 'pending' (never for a definitive 'failed' — a declined transaction
+// doesn't become paid by waiting) closes that race window instead of
+// mislabeling a payment that was seconds away from confirming.
+async function checkMyFatoorahWithRetry(key: string, keyType: 'InvoiceId' | 'PaymentId', purchaseId: string): Promise<GatewayResult> {
+  const attempts = 3
+  const delayMs = 1200
+  let result = await checkMyFatoorah(key, keyType, purchaseId)
+  for (let i = 1; i < attempts && result.status === 'pending'; i++) {
+    console.log(`[payment/verify] purchase ${purchaseId} still pending on attempt ${i}/${attempts - 1} retries — waiting ${delayMs}ms before re-checking (settlement lag, not a failure)`)
+    await sleep(delayMs)
+    result = await checkMyFatoorah(key, keyType, purchaseId)
+  }
+  return result
+}
+
 // ── Tap verification ─────────────────────────────────────────
 async function checkTap(chargeId: string, purchaseId: string): Promise<GatewayResult> {
   console.log(`[payment/verify] Tap charge lookup — id=${chargeId} purchaseId=${purchaseId}`)
@@ -87,6 +112,12 @@ async function checkTap(chargeId: string, purchaseId: string): Promise<GatewayRe
   return { status, matchesPurchase, paymentMethod: charge.source?.payment_method ?? charge.card?.brand ?? null, raw: charge }
 }
 
+interface FinalizeResult {
+  status: GatewayStatus
+  userId: string | null
+  email: string | null
+}
+
 // ── Core verify + finalize ───────────────────────────────────
 // The gateway reference used to call GetPaymentStatus/charge lookup is
 // always read from OUR OWN purchases.payment_ref column — written
@@ -105,31 +136,34 @@ async function verifyAndFinalize(
   gateway: string,
   sb: any,
   urlFallbackKey: string | null
-): Promise<{ status: GatewayStatus }> {
+): Promise<FinalizeResult> {
   console.log(`[payment/callback] verifying purchase=${purchaseId} gateway=${gateway}`)
 
   const { data: purchase, error } = await sb.from('purchases')
-    .select('id,status,payment_ref').eq('id', purchaseId).single()
+    .select('id,status,payment_ref,email,guest_email,user_id').eq('id', purchaseId).single()
 
   if (error || !purchase) {
     console.error(`[payment/callback] purchase ${purchaseId} not found — ${error?.message ?? 'no matching row'}`)
-    return { status: 'pending' }
+    return { status: 'pending', userId: null, email: null }
   }
 
-  console.log(`[payment/callback] purchase ${purchaseId} loaded — status=${purchase.status} storedRef=${purchase.payment_ref ?? 'none'}`)
+  console.log(`[payment/callback] purchase ${purchaseId} loaded — status=${purchase.status} storedRef=${purchase.payment_ref ?? 'none'} user_id=${purchase.user_id ?? 'none'}`)
 
   // Idempotency fast-path: retries and duplicate callbacks must never
   // re-process a purchase that's already been finalized. This also means a
   // page refresh on /success or the gateway firing both a redirect AND a
   // webhook for the same payment is always safe — no gateway round-trip
-  // needed once we already know the outcome.
+  // needed once we already know the outcome. Account linking is retried
+  // here regardless (see below) in case a PREVIOUS completion left the
+  // purchase completed but account provisioning itself failed transiently.
   if (purchase.status !== 'pending') {
-    // currentPurchaseStatus alone determines the outcome here — decideFinalize
-    // returns before ever looking at the gateway argument for a non-pending
-    // purchase, so no gateway call is needed just to answer "what happened".
     const decision = decideFinalize(purchase.status, { status: 'pending', matchesPurchase: false, paymentMethod: null, raw: null })
-    console.log(`[payment/callback] purchase ${purchaseId} already finalized as ${purchase.status} — idempotent no-op, not re-verifying`)
-    return { status: decision.resultStatus }
+    console.log(`[payment/callback] purchase ${purchaseId} already finalized as ${purchase.status} — idempotent no-op, not re-verifying with the gateway`)
+    if (decision.resultStatus === 'completed') {
+      const linked = await ensureUserLinked(sb, purchase)
+      return { status: 'completed', userId: linked?.userId ?? purchase.user_id ?? null, email: linked?.email ?? purchase.email ?? null }
+    }
+    return { status: decision.resultStatus, userId: null, email: null }
   }
 
   let key = purchase.payment_ref as string | null
@@ -141,12 +175,12 @@ async function verifyAndFinalize(
   }
   if (!key) {
     console.error(`[payment/callback] purchase ${purchaseId} has no payment reference to verify against — cannot proceed`)
-    return { status: 'pending' }
+    return { status: 'pending', userId: null, email: null }
   }
 
   const gatewayResult = gateway === 'tap'
     ? await checkTap(key, purchaseId)
-    : await checkMyFatoorah(key, keyType, purchaseId)
+    : await checkMyFatoorahWithRetry(key, keyType, purchaseId)
 
   const decision = decideFinalize(purchase.status, gatewayResult)
 
@@ -154,8 +188,8 @@ async function verifyAndFinalize(
     throw new Error('Payment reference does not match purchase')
   }
   if (decision.action === 'wait_pending') {
-    console.log(`[payment/callback] purchase ${purchaseId} still pending at the gateway — no DB update yet`)
-    return { status: 'pending' }
+    console.log(`[payment/callback] purchase ${purchaseId} still pending at the gateway after retries — no DB update yet, not a failure`)
+    return { status: 'pending', userId: null, email: null }
   }
 
   // decision.action === 'apply_update' — the `.eq('status','pending')` guard
@@ -165,17 +199,30 @@ async function verifyAndFinalize(
   const { data: updated, error: updateErr } = await sb.from('purchases')
     .update(decision.update)
     .eq('id', purchaseId).eq('status', 'pending')
-    .select('id').maybeSingle()
+    .select('id,user_id').maybeSingle()
 
   if (updateErr) {
     console.error(`[payment/callback] failed to write purchase ${purchaseId} update: ${updateErr.message}`)
-  } else if (!updated) {
-    console.log(`[payment/callback] purchase ${purchaseId} was already transitioned by a concurrent request — no-op (expected on duplicate callback)`)
-  } else {
-    console.log(`[payment/callback] purchase ${purchaseId} → status=${decision.resultStatus}${decision.resultStatus === 'completed' ? ` paid_at=${decision.update?.paid_at} payment_method=${decision.update?.payment_method ?? '(unchanged)'}` : ''}`)
+    return { status: decision.resultStatus, userId: null, email: null }
+  }
+  if (!updated) {
+    console.log(`[payment/callback] purchase ${purchaseId} was already transitioned by a concurrent request — re-reading its final state`)
+    const { data: settled } = await sb.from('purchases').select('status,user_id,email').eq('id', purchaseId).single()
+    if (settled?.status === 'completed') {
+      const linked = await ensureUserLinked(sb, { id: purchaseId, user_id: settled.user_id, email: settled.email })
+      return { status: 'completed', userId: linked?.userId ?? settled.user_id ?? null, email: linked?.email ?? settled.email ?? null }
+    }
+    return { status: (settled?.status as GatewayStatus) ?? decision.resultStatus, userId: null, email: null }
   }
 
-  return { status: decision.resultStatus }
+  console.log(`[payment/callback] purchase ${purchaseId} → status=${decision.resultStatus}${decision.resultStatus === 'completed' ? ` paid_at=${decision.update?.paid_at} payment_method=${decision.update?.payment_method ?? '(unchanged)'}` : ''}`)
+
+  if (decision.resultStatus === 'completed') {
+    const linked = await ensureUserLinked(sb, { id: purchaseId, user_id: updated.user_id, email: purchase.email, guest_email: purchase.guest_email })
+    return { status: 'completed', userId: linked?.userId ?? null, email: linked?.email ?? purchase.email ?? null }
+  }
+
+  return { status: decision.resultStatus, userId: null, email: null }
 }
 
 // ── GET — redirect-based callback (user returns from gateway) ─
@@ -206,11 +253,43 @@ export async function GET(request: NextRequest) {
 
   try {
     const result = await verifyAndFinalize(purchaseId, gateway, sb, urlKey)
-    if (result.status === 'completed') {
-      console.log(`[payment/callback GET][redirect] purchase ${purchaseId} PAID — sending customer to /success (never /checkout)`)
+    const destination = resultStatusToDestination(result.status)
+
+    if (destination === 'library') {
+      // Send the browser straight through Supabase's own sign-in link
+      // verification (the same mechanism Google login and password-reset
+      // already use via /auth/callback) so it lands on /library already
+      // authenticated — no manual "create a password" step, and NEVER a
+      // bounce to /checkout for a payment that actually succeeded.
+      const magicLink = result.email ? await generateLibraryMagicLink(sb, result.email, appUrl) : null
+      if (magicLink) {
+        console.log(`[payment/callback GET][redirect] purchase ${purchaseId} PAID — auto-login link minted, sending customer straight to /library`)
+        return NextResponse.redirect(magicLink)
+      }
+      // Account/magic-link provisioning failed for some reason (e.g. auth
+      // admin API hiccup) — the purchase is still genuinely completed and
+      // must never be shown as a failure. Fall back to /success, which lets
+      // the customer set a password manually and still reach their book;
+      // this is strictly a degraded UX path, never a lost sale.
+      console.warn(`[payment/callback GET][redirect] purchase ${purchaseId} PAID but auto-login could not be provisioned — falling back to /success (never /checkout)`)
       return NextResponse.redirect(`${appUrl}/success?purchaseId=${purchaseId}`)
     }
-    console.log(`[payment/callback GET][redirect] purchase ${purchaseId} not completed (status=${result.status}) — sending customer to /checkout with payment_failed`)
+
+    if (destination === 'pending') {
+      // Genuinely undetermined (or the bounded retry above still hasn't
+      // seen a final settlement) — this is explicitly NOT the same as
+      // "failed". /success already renders an honest "لم نستلم تأكيد الدفع
+      // بعد" state for exactly this case instead of a hard failure banner,
+      // and money that was actually deducted is never silently written off
+      // as payment_failed just because MyFatoorah hadn't finished settling
+      // yet at the moment of redirect. /success itself now polls in the
+      // background and upgrades to the success view automatically once
+      // settlement completes, without the customer having to do anything.
+      console.log(`[payment/callback GET][redirect] purchase ${purchaseId} still pending — sending to /success (pending state), NOT /checkout`)
+      return NextResponse.redirect(`${appUrl}/success?purchaseId=${purchaseId}`)
+    }
+
+    console.log(`[payment/callback GET][redirect] purchase ${purchaseId} failed/declined/cancelled — sending customer to /checkout with an Arabic error`)
     return NextResponse.redirect(`${appUrl}/checkout?error=payment_failed&purchaseId=${purchaseId}`)
   } catch (err: any) {
     console.error(`[payment/callback GET] verification threw for purchase ${purchaseId}: ${err.message}`)
@@ -272,9 +351,12 @@ export async function POST(request: NextRequest) {
     // The webhook body's own InvoiceId/status fields are never trusted — a
     // forged POST could otherwise mark any purchase paid. verifyAndFinalize
     // re-derives the reference from our DB and re-verifies live with the
-    // gateway regardless of what this payload claims.
+    // gateway regardless of what this payload claims. Account
+    // creation/linking runs here too (not just on the GET redirect path) so
+    // a purchase confirmed asynchronously — after the customer's browser
+    // already left — still ends up fully provisioned and library-ready.
     const result = await verifyAndFinalize(purchaseId, gateway, sb, null)
-    console.log(`[payment/callback POST] webhook processed — purchase=${purchaseId} status=${result.status}`)
+    console.log(`[payment/callback POST] webhook processed — purchase=${purchaseId} status=${result.status}${result.userId ? ` user_id=${result.userId}` : ''}`)
     return NextResponse.json({ received: true, status: result.status })
   } catch (err: any) {
     console.error(`[payment/callback POST] verification threw for purchase ${purchaseId}: ${err.message}`)

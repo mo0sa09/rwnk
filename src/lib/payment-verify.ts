@@ -93,3 +93,20 @@ export function decideFinalize(
   }
   return { action: 'apply_update', resultStatus: gateway.status, update }
 }
+
+export type CallbackDestination = 'library' | 'pending' | 'failed'
+
+// Single source of truth for "where does the customer's browser go after
+// the gateway redirect" — used by /api/payment/callback's GET handler so
+// this mapping is exercised by the same unit tests that cover
+// deriveMyFatoorahVerdict/decideFinalize, instead of living only as inline
+// if/else in the route (where a future edit could silently reintroduce the
+// exact bug this fixes: collapsing 'pending' into the same "failed, bounce
+// to checkout" branch as a genuinely declined/cancelled payment). A
+// 'pending' result — settlement not yet confirmed, NOT a decline — must
+// never be indistinguishable from 'failed' at this layer.
+export function resultStatusToDestination(status: GatewayStatus): CallbackDestination {
+  if (status === 'completed') return 'library'
+  if (status === 'pending') return 'pending'
+  return 'failed'
+}
