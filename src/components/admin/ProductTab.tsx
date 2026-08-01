@@ -3,15 +3,38 @@ import { useEffect, useState } from 'react'
 import { C } from '@/lib/theme'
 import { card, cardTitle, inp, label as labelStyle, focus, blur, btnPrimary, PageHeader, LoadingBlock, EmptyState, useToast, useConfirm } from './adminUi'
 import { FileUploadField } from './FileUploadField'
+import { DigitalProductUpload } from './DigitalProductUpload'
 
 interface ProductForm {
   product_name: string; product_price: number; product_original_price: number
   product_description: string; product_image_url: string | null; downloads_limit: number
 }
+interface ProductFileState {
+  file_path: string | null; version: string
+  file_path_ar: string | null; version_ar: string
+  file_path_en: string | null; version_en: string
+}
 interface DiscountCode {
   id: string; code: string; discount_type: 'percent' | 'fixed'
   discount_value: number; max_uses: number | null; used_count: number
   expires_at: string | null; is_active: boolean
+}
+
+// The bilingual columns (file_path_ar/version_ar/file_path_en/version_en)
+// may not exist yet on a database that hasn't had supabase/schema.sql §15
+// applied — select('*') on /api/admin/product-file's GET never errors on a
+// missing column (unlike an explicit column list would), so this just
+// normalizes whatever subset actually came back into a consistent shape
+// instead of the UI reading `undefined` in various places.
+function normalizeProductFile(data: any): ProductFileState {
+  return {
+    file_path: data?.file_path ?? null,
+    version: data?.version ?? '1.0',
+    file_path_ar: data?.file_path_ar ?? null,
+    version_ar: data?.version_ar ?? '1.0',
+    file_path_en: data?.file_path_en ?? null,
+    version_en: data?.version_en ?? '1.0',
+  }
 }
 
 export function ProductTab() {
@@ -21,7 +44,7 @@ export function ProductTab() {
     product_name: '', product_price: 0, product_original_price: 0,
     product_description: '', product_image_url: null, downloads_limit: 5,
   })
-  const [productFile, setProductFile] = useState<{ file_path: string; version: string } | null>(null)
+  const [productFile, setProductFile] = useState<ProductFileState | null>(null)
   const [discounts, setDiscounts] = useState<DiscountCode[]>([])
   const [newDisc, setNewDisc] = useState({ code: '', type: 'percent', value: '', maxUses: '', expiresAt: '' })
   const [loading, setLoading] = useState(true)
@@ -39,7 +62,7 @@ export function ProductTab() {
       ])
       const [sJson, pJson, dJson] = await Promise.all([sRes.json(), pRes.json(), dRes.json()])
       if (sRes.ok && sJson.data) setForm(f => ({ ...f, ...sJson.data }))
-      if (pRes.ok && pJson.data) setProductFile({ file_path: pJson.data.file_path, version: pJson.data.version })
+      if (pRes.ok && pJson.data) setProductFile(normalizeProductFile(pJson.data))
       if (dRes.ok) setDiscounts(dJson.data ?? [])
     } catch { toast.push('error', 'تعذّر تحميل بيانات المنتج') }
     setLoading(false)
@@ -61,7 +84,7 @@ export function ProductTab() {
         const [sJson, pJson, dJson] = await Promise.all([sRes.json(), pRes.json(), dRes.json()])
         if (cancelled) return
         if (sRes.ok && sJson.data) setForm(f => ({ ...f, ...sJson.data }))
-        if (pRes.ok && pJson.data) setProductFile({ file_path: pJson.data.file_path, version: pJson.data.version })
+        if (pRes.ok && pJson.data) setProductFile(normalizeProductFile(pJson.data))
         if (dRes.ok) setDiscounts(dJson.data ?? [])
       } catch { if (!cancelled) toast.push('error', 'تعذّر تحميل بيانات المنتج') }
       if (!cancelled) setLoading(false)
@@ -79,17 +102,17 @@ export function ProductTab() {
     setSaving(false)
   }
 
-  async function handlePdfUploaded(path: string) {
+  async function handleDigitalFileUploaded(language: 'ar' | 'en', path: string, version: string) {
+    const pathField = language === 'ar' ? 'file_path_ar' : 'file_path_en'
+    const versionField = language === 'ar' ? 'version_ar' : 'version_en'
     try {
-      const nextVersion = productFile ? bumpVersion(productFile.version) : '1.0'
       const res = await fetch('/api/admin/product-file', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file_path: path, version: nextVersion }),
+        body: JSON.stringify({ [pathField]: path, [versionField]: version }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'حدث خطأ')
-      setProductFile({ file_path: json.data.file_path, version: json.data.version })
-      toast.push('success', `تم رفع نسخة جديدة (v${json.data.version})`)
+      setProductFile(normalizeProductFile(json.data))
     } catch (e: any) { toast.push('error', e.message ?? 'حدث خطأ') }
   }
 
@@ -164,14 +187,7 @@ export function ProductTab() {
           <FileUploadField
             label="صورة المنتج" kind="image" accept="image/png,image/jpeg,image/webp"
             value={form.product_image_url} onChange={url => setForm(f => ({ ...f, product_image_url: url }))}
-            hint="تظهر في قسم الهيرو بالصفحة الرئيسية بدلاً من الغلاف الافتراضي"
-          />
-          <div style={{ height: 1, background: C.border, margin: '6px 0 16px' }} />
-          <FileUploadField
-            label={`ملف PDF الحالي${productFile ? ` — الإصدار ${productFile.version}` : ''}`}
-            kind="product-pdf" accept="application/pdf" previewKind="none"
-            value={productFile?.file_path ?? null} onChange={handlePdfUploaded}
-            hint="رفع ملف جديد يستبدل النسخة الحالية فوراً لكل من اشترى — تُحدَّث رقم الإصدار تلقائياً"
+            hint="تظهر في قسم الهيرو بالصفحة الرئيسية وكغلاف الكتاب في صفحة نجاح الدفع"
           />
 
           <div style={{ marginTop: 20, background: C.surface, borderRadius: 12, padding: '14px 16px', border: `1px solid ${C.border}` }}>
@@ -184,6 +200,27 @@ export function ProductTab() {
               <span style={{ fontSize: 28, fontWeight: 900, color: C.primary }}>{form.product_price} <span style={{ fontSize: 14, fontWeight: 400, color: C.text3 }}>د.ك</span></span>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div style={{ ...card, marginBottom: 16 }}>
+        <div style={cardTitle}>المنتج الرقمي</div>
+        <p style={{ fontSize: 11, color: C.text3, marginTop: -10, marginBottom: 16 }}>
+          ارفعي نسخة الكتاب بكل لغة على حدة — يتم اختيار الملف المناسب تلقائياً حسب اللغة التي يختارها العميل عند الدفع.
+        </p>
+        <div className="admin-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <DigitalProductUpload
+            flag="🇸🇦" label="النسخة العربية"
+            filePath={productFile?.file_path_ar ?? null} version={productFile?.version_ar ?? '1.0'}
+            recommendedFilename="rwnk-guide-ar.pdf"
+            onUploaded={(path, version) => handleDigitalFileUploaded('ar', path, version)}
+          />
+          <DigitalProductUpload
+            flag="🇺🇸" label="النسخة الإنجليزية"
+            filePath={productFile?.file_path_en ?? null} version={productFile?.version_en ?? '1.0'}
+            recommendedFilename="rwnk-guide-en.pdf"
+            onUploaded={(path, version) => handleDigitalFileUploaded('en', path, version)}
+          />
         </div>
       </div>
 
@@ -249,10 +286,4 @@ export function ProductTab() {
       </div>
     </div>
   )
-}
-
-function bumpVersion(v: string): string {
-  const n = parseFloat(v)
-  if (Number.isNaN(n)) return '1.0'
-  return (Math.round((n + 0.1) * 10) / 10).toFixed(1)
 }

@@ -1,5 +1,10 @@
-// Inline, self-contained payment method marks — no external asset requests.
-// Purely visual trust signals for the checkout payment selector.
+// Payment method marks for the checkout payment selector. Visa/Mastercard
+// and Apple Pay are self-contained inline SVG (vector — sharp at any
+// resolution/DPR by construction, no raster asset needed). KNET is the one
+// mark sourced from an actual reference image (see KnetIcon below) since
+// its real mark is a specific illustrated badge, not a typeface wordmark
+// that can be faithfully reproduced with SVG <text>.
+import Image from 'next/image'
 
 export function CardBrandsIcon({ height = 22 }: { height?: number }) {
   return (
@@ -15,29 +20,50 @@ export function CardBrandsIcon({ height = 22 }: { height?: number }) {
   )
 }
 
-// KNET's real mark is a single-tone lowercase "knet" wordmark in a bold
-// rounded sans-serif — not the uppercase multi-color letters this used to
-// draw. No licensed SVG asset is bundled here, so this reproduces the
-// wordmark's actual shape/tone rather than an approximation; swap in
-// KNET's official brand-kit SVG if pixel-perfect accuracy is required.
+// KNET's official mark is a square badge (blue field, "كي نت" Arabic
+// wordmark, yellow "K" glyph, "NET" wordmark) — not a wide card like its
+// siblings, so it is rendered at its own NATIVE 1:1 aspect ratio rather than
+// stretched into the same wide-pill shape as Visa/Mastercard/Apple Pay.
+// Only its HEIGHT matches the sibling icons (the shared contract every
+// caller already relies on); width follows naturally from the square
+// source, so nothing is distorted. Source is a 256×256 static asset —
+// 6–12× the ~20–40px on-screen size this renders at — specifically so it
+// stays crisp at 2x/3x device pixel ratios; next/image additionally emits a
+// responsive srcset and serves WebP/AVIF where supported.
 export function KnetIcon({ height = 22 }: { height?: number }) {
   return (
-    <svg width={height * 2.15} height={height} viewBox="0 0 86 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="4" width="86" height="32" rx="6" fill="#fff" stroke="#EDE8F5" />
-      <text x="43" y="26" textAnchor="middle" fontFamily="'Helvetica Neue', Arial, sans-serif" fontWeight="800" fontSize="17" letterSpacing="-0.3" fill="#0B5FA5">knet</text>
-    </svg>
+    <Image
+      src="/payment-icons/knet.jpg"
+      alt="KNET"
+      width={256}
+      height={256}
+      style={{
+        width: height, height, flexShrink: 0, display: 'block',
+        // 6/40 matches the corner-radius-to-height ratio used by the
+        // sibling cards' rx="6" on a 40-tall viewBox, so all three payment
+        // icons read as the same family of rounded badge shapes.
+        borderRadius: Math.round(height * 0.15), border: '1px solid #EDE8F5',
+        objectFit: 'cover',
+      }}
+    />
   )
 }
 
+// Apple's official bitten-apple glyph (correct orientation: leaf tilting up
+// toward the right, bite notch on the right side of the fruit) followed by
+// the "Pay" wordmark — replaces a previous hand-approximated path whose
+// silhouette was subtly malformed/mirrored. Composition (black pill,
+// left-aligned glyph, "Pay" following) is unchanged from before; only the
+// glyph itself and its proportions relative to "Pay" were corrected to
+// match Apple's actual Apple Pay mark.
 export function ApplePayIcon({ height = 22 }: { height?: number }) {
   return (
     <svg width={height * 2.15} height={height} viewBox="0 0 86 40" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect x="0" y="4" width="86" height="32" rx="6" fill="#000" />
-      <g transform="translate(16,11)" fill="#fff">
-        <path d="M9.4 2.5c.55-.67.93-1.6.83-2.5-.8.03-1.77.53-2.34 1.2-.5.58-.95 1.54-.83 2.44.9.07 1.8-.46 2.34-1.14Z" />
-        <path d="M10.22 3.87c-1.29-.08-2.38.73-2.99.73-.62 0-1.55-.7-2.56-.68-1.32.02-2.54.77-3.21 1.95-1.38 2.38-.36 5.9.98 7.84.65.95 1.43 2 2.46 1.96 1-.04 1.37-.64 2.57-.64 1.2 0 1.53.64 2.57.62 1.06-.02 1.73-.96 2.38-1.92.75-1.1 1.06-2.17 1.08-2.22-.02-.02-2.07-.8-2.09-3.16-.02-1.97 1.61-2.91 1.68-2.96-.92-1.36-2.36-1.51-2.87-1.52Z" />
+      <g transform="translate(15,7) scale(0.72)" fill="#fff">
+        <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47c-1.34.03-1.77-.79-3.29-.79c-1.53 0-2 .77-3.27.82c-1.31.05-2.3-1.32-3.14-2.53C4.25 17.11 2.94 12.65 4.7 9.62c.87-1.51 2.43-2.44 4.13-2.46c1.29-.02 2.5.87 3.29.87c.78 0 2.26-1.08 3.81-.92c.65.03 2.47.26 3.64 1.98c-.09.06-2.17 1.28-2.15 3.81c.03 3.02 2.65 4.03 2.68 4.04c-.03.07-.42 1.44-1.38 2.85M13 3.5c.73-.83 1.94-1.46 2.94-1.5c.13 1.17-.34 2.35-1.04 3.19c-.69.85-1.83 1.51-2.95 1.42c-.15-1.15.41-2.35 1.05-3.11" />
       </g>
-      <text x="34" y="25" fontFamily="-apple-system, Arial, sans-serif" fontWeight="600" fontSize="14" fill="#fff">Pay</text>
+      <text x="34" y="25.5" fontFamily="-apple-system, 'SF Pro Text', Arial, sans-serif" fontWeight="600" fontSize="14" fill="#fff">Pay</text>
     </svg>
   )
 }

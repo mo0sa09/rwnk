@@ -13,6 +13,7 @@
 import { deriveMyFatoorahVerdict, decideFinalize, resultStatusToDestination, extractMyFatoorahWebhookPurchaseId } from '../src/lib/payment-verify.ts'
 import { ensureUserLinked, mintDownloadToken } from '../src/lib/payment-access.ts'
 import { sendPurchaseConfirmationEmail } from '../src/lib/email.ts'
+import { resolveProductFilePath, resolveBookLanguage } from '../src/lib/download-resolver.ts'
 
 let pass = 0
 let fail = 0
@@ -530,6 +531,7 @@ section('sendPurchaseConfirmationEmail (never throws, fails closed)')
 
 const emailParams = {
   to: 'customer@example.com',
+  language: 'ar',
   storeName: 'رَوْنَق',
   productName: 'كتاب رَوْنَق',
   invoiceNumber: 'RWN-2026-0001',
@@ -596,6 +598,112 @@ const emailParams = {
 }
 
 // ─────────────────────────────────────────────────────────────
+// 4e. Bilingual email content — real production code, both languages,
+//     verifying the exact subjects requested and that each language's email
+//     actually contains that language's copy (not a shared/mixed template).
+// ─────────────────────────────────────────────────────────────
+section('Bilingual confirmation email (ar / en)')
+
+{
+  const savedKey = process.env.RESEND_API_KEY
+  const savedFrom = process.env.EMAIL_FROM
+  const savedFetch = globalThis.fetch
+  process.env.RESEND_API_KEY = 'test-key'
+  process.env.EMAIL_FROM = 'رَوْنَق <hello@rwnk.co>'
+
+  let capturedBody = null
+  globalThis.fetch = async (_url, init) => { capturedBody = JSON.parse(init.body); return { ok: true, status: 200, text: async () => '{"id":"email_ar"}' } }
+  await sendPurchaseConfirmationEmail({ ...emailParams, language: 'ar' })
+  check('Arabic subject matches exactly', capturedBody?.subject === 'تم استلام طلبك بنجاح ✨', `got "${capturedBody?.subject}"`)
+  check('Arabic email is dir="rtl"', capturedBody?.html?.includes('dir="rtl"'))
+  check('Arabic email shows the Arabic language badge', capturedBody?.html?.includes('🇸🇦 العربية'))
+  check('Arabic email does NOT contain the English heading', !capturedBody?.html?.includes('Payment Successful!'))
+
+  globalThis.fetch = async (_url, init) => { capturedBody = JSON.parse(init.body); return { ok: true, status: 200, text: async () => '{"id":"email_en"}' } }
+  await sendPurchaseConfirmationEmail({ ...emailParams, language: 'en' })
+  check('English subject matches exactly', capturedBody?.subject === 'Your RWNK Guide is Ready ✨', `got "${capturedBody?.subject}"`)
+  check('English email is dir="ltr"', capturedBody?.html?.includes('dir="ltr"'))
+  check('English email shows the English language badge', capturedBody?.html?.includes('🇺🇸 English'))
+  check('English email does NOT contain the Arabic heading', !capturedBody?.html?.includes('تم الدفع بنجاح!'))
+  check('English email download button uses English copy', capturedBody?.html?.includes('Download Your Book Now'))
+  check('English email still points the button at /success, never storage', capturedBody?.html?.includes(emailParams.successUrl) && !capturedBody?.html?.includes('supabase.co/storage'))
+
+  globalThis.fetch = savedFetch
+  if (savedKey !== undefined) process.env.RESEND_API_KEY = savedKey; else delete process.env.RESEND_API_KEY
+  if (savedFrom !== undefined) process.env.EMAIL_FROM = savedFrom; else delete process.env.EMAIL_FROM
+}
+
+// ─────────────────────────────────────────────────────────────
+// 4f. resolveProductFilePath — the hard correctness requirement from the
+//     bilingual-PDF audit: an Arabic purchase must NEVER receive the English
+//     file, and an English purchase must NEVER receive the Arabic file
+//     UNLESS its own file is genuinely unconfigured (in which case that's
+//     flagged via `degraded`, not silently treated as a normal success).
+//     Uses the exact real file paths confirmed live in Supabase Storage
+//     during this audit (products/books/rwnk-guide-ar.pdf and
+//     products/books/rwnk-guide-en.pdf), not placeholder strings.
+// ─────────────────────────────────────────────────────────────
+section('resolveProductFilePath / resolveBookLanguage (real production code)')
+
+const AR_PATH = 'books/rwnk-guide-ar.pdf'
+const EN_PATH = 'books/rwnk-guide-en.pdf'
+const LEGACY_PATH = 'books/rwnk-guide-v1.pdf'
+const bothConfigured = { file_path: LEGACY_PATH, file_path_ar: AR_PATH, file_path_en: EN_PATH }
+
+{
+  check("resolveBookLanguage('ar') => ar", resolveBookLanguage('ar') === 'ar')
+  check("resolveBookLanguage('en') => en", resolveBookLanguage('en') === 'en')
+  check('resolveBookLanguage(null) defaults to ar (matches the DB column default)', resolveBookLanguage(null) === 'ar')
+  check('resolveBookLanguage(undefined) defaults to ar (column missing pre-migration)', resolveBookLanguage(undefined) === 'ar')
+  check('resolveBookLanguage(garbage) defaults to ar, never throws or passes through', resolveBookLanguage('fr') === 'ar')
+}
+
+{
+  // ✓ THE core guarantee: with both files configured, each language gets
+  // EXACTLY its own file — never the other one.
+  const ar = resolveProductFilePath('ar', bothConfigured)
+  const en = resolveProductFilePath('en', bothConfigured)
+  check('ar request => the Arabic path, exactly', ar.filePath === AR_PATH)
+  check('ar request never returns the English path', ar.filePath !== EN_PATH)
+  check('ar request is not degraded when its file is configured', ar.degraded === false)
+  check('en request => the English path, exactly', en.filePath === EN_PATH)
+  check('en request never returns the Arabic path (when English IS configured)', en.filePath !== AR_PATH)
+  check('en request is not degraded when its file is configured', en.degraded === false)
+}
+
+{
+  // ✓ English requested, English file NOT YET uploaded — degrades to
+  // Arabic (never blocks a paying customer) but MUST flag degraded:true so
+  // the caller logs it, rather than silently mismatching the language.
+  const productArOnly = { file_path: LEGACY_PATH, file_path_ar: AR_PATH, file_path_en: null }
+  const result = resolveProductFilePath('en', productArOnly)
+  check('en requested, no English file => falls back to Arabic rather than 404ing', result.filePath === AR_PATH)
+  check('en requested, no English file => degraded is true (must be logged, not silent)', result.degraded === true)
+  check('language field still honestly reports "en" was requested (for the warning log)', result.language === 'en')
+}
+
+{
+  // ✓ Pre-bilingual product row (current live default until the migration
+  // in supabase/schema.sql §15 is applied): only the legacy file_path
+  // exists. Both languages must still resolve to a real, working path
+  // rather than 404ing — this is the exact state this audit found live.
+  const legacyOnly = { file_path: AR_PATH, file_path_ar: null, file_path_en: null }
+  const ar = resolveProductFilePath('ar', legacyOnly)
+  const en = resolveProductFilePath('en', legacyOnly)
+  check('pre-migration state, ar request => legacy file_path (fixed to the real Arabic file during this audit)', ar.filePath === AR_PATH)
+  check('pre-migration state, en request => same legacy fallback (no English file to distinguish yet)', en.filePath === AR_PATH)
+}
+
+{
+  // ✗ Nothing configured at all — must return null, never a made-up path,
+  // so the caller shows a clear 404 instead of ever downloading a wrong file.
+  const nothing = { file_path: null, file_path_ar: null, file_path_en: null }
+  check('nothing configured => filePath is null (caller must show a clear error, never guess)', resolveProductFilePath('ar', nothing).filePath === null)
+  check('nothing configured (en) => filePath is null', resolveProductFilePath('en', nothing).filePath === null)
+  check('null product object entirely => filePath is null, never throws', resolveProductFilePath('ar', null).filePath === null)
+}
+
+// ─────────────────────────────────────────────────────────────
 // 5. Download after payment — purchase must be 'completed' before a token
 //    is ever issued (mirrors /api/download/token's gating)
 // ─────────────────────────────────────────────────────────────
@@ -655,5 +763,15 @@ Requires a live MyFatoorah sandbox + Supabase project to verify end-to-end
   [ ] Confirm MYFATOORAH_BASE_URL/NEXT_PUBLIC_APP_URL are both LIVE (not sandbox/localhost) in the production environment
   [ ] Confirm /auth/callback is present in the Supabase project's Auth → URL Configuration → Redirect URLs allow-list
   [ ] Confirm EMAIL_FROM's domain is verified in the Resend dashboard (unverified domains fail every send)
+
+  Bilingual digital product (requires supabase/schema.sql §15 applied — see report):
+  [ ] Run the §15 migration in the Supabase SQL Editor, then re-verify: existing purchases still resolve to their original file (book_language defaulted to 'ar', file_path_ar backfilled from file_path)
+  [ ] Admin ▸ إدارة المنتج ▸ المنتج الرقمي: upload an Arabic PDF -> progress bar reaches 100% -> file path + version badge appear
+  [ ] Admin: upload an English PDF -> same, independently of the Arabic slot
+  [ ] Checkout: choose English -> pay (sandbox) -> /success shows "🇺🇸 English" -> Download button serves the ENGLISH file, not Arabic
+  [ ] Checkout: choose Arabic (or leave default) -> Download button serves the ARABIC file
+  [ ] Purchase language=en but no English PDF uploaded yet -> download falls back to Arabic (never 404s), warning logged server-side
+  [ ] Confirmation email language matches the purchase's book_language (ar purchase -> Arabic email with ar subject; en purchase -> English email with en subject)
+  [ ] Every screen (checkout language selector, success page) is checked at 320/360/375/390/430/768/1024/1440px — no horizontal overflow, no clipped text
 `)
 process.exit(0)

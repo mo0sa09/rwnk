@@ -17,6 +17,7 @@ function warnIfEnvLooksInconsistent(baseUrl: string, appUrl: string) {
   if (isLiveGateway && isLocalApp) {
     console.warn(`[myfatoorah] MYFATOORAH_BASE_URL is the LIVE gateway (${baseUrl}) but NEXT_PUBLIC_APP_URL is local (${appUrl}) — MyFatoorah cannot reach a localhost CallBackUrl/ErrorUrl from its servers. This will look like "payment succeeded but we never heard back."`)
   }
+
   if (!isLiveGateway && !isLocalApp) {
     console.warn(`[myfatoorah] MYFATOORAH_BASE_URL is the SANDBOX gateway (${baseUrl}) but NEXT_PUBLIC_APP_URL looks like a production domain (${appUrl}) — confirm this is intentional (test mode on a live domain) and not a forgotten env var before going live.`)
   }
@@ -185,9 +186,9 @@ export async function POST(request: NextRequest) {
   // portal's dashboard-level webhook setting, which this codebase has no
   // way to verify is even configured. No purchaseId needs to be encoded in
   // this URL — the webhook POST handler in /api/payment/callback already
-  // reads the purchase reference from the webhook body itself via
-  // extractMyFatoorahWebhookPurchaseId() (Data.Invoice.ExternalIdentifier),
-  // the same way it does for a dashboard-configured webhook.
+  // reads the purchase reference from the webhook body itself
+  // (Data.Invoice.UserDefinedField), the same way it does for a
+  // dashboard-configured webhook.
   const webhookUrl = `${appUrl}/api/payment/callback?gateway=${gateway}`
 
   console.log(`[payment/initiate] starting ${gateway} payment — purchase=${purchaseId} email=${purchase.email} amount=${purchase.amount}`)

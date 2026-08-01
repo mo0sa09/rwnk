@@ -230,6 +230,7 @@ SELECT
   p.downloads_used,
   (p.downloads_limit - p.downloads_used) AS downloads_remaining,
   p.created_at,
+  p.book_language,
   pr.id         AS product_id,
   pr.name       AS product_name,
   pr.version    AS product_version,
@@ -573,3 +574,70 @@ CREATE TRIGGER on_auth_user_updated
   FOR EACH ROW
   WHEN (NEW.raw_user_meta_data IS DISTINCT FROM OLD.raw_user_meta_data)
   EXECUTE FUNCTION public.handle_new_user();
+
+-- ═══════════════════════════════════════════════════════════
+-- 15. BILINGUAL DIGITAL PRODUCT — per-purchase book language +
+-- two PDF files per product (Arabic / English)
+--
+-- NOTE ON APPLYING THIS MIGRATION: a previous audit of this exact project's
+-- LIVE database found that earlier ALTER TABLE statements in this file
+-- (paid_at/transaction_details above) were declared here but never actually
+-- executed against production — PostgREST's REST API cannot run DDL, so
+-- adding a statement to this file does NOT apply it by itself. This section
+-- (and every ALTER/UPDATE below) MUST be run manually via the Supabase SQL
+-- Editor before the bilingual feature will work in production. All
+-- statements are idempotent (IF NOT EXISTS / WHERE ... IS NULL) and safe to
+-- run multiple times.
+-- ═══════════════════════════════════════════════════════════
+
+-- 15.1 purchases.book_language — captured at checkout, persisted through
+-- the entire payment lifecycle, read at download/email time to pick the
+-- right file. Defaults new rows to 'ar'; existing rows are explicitly
+-- backfilled to 'ar' below so no purchase is ever left without a value.
+ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS book_language TEXT DEFAULT 'ar';
+ALTER TABLE public.purchases DROP CONSTRAINT IF EXISTS purchases_book_language_check;
+ALTER TABLE public.purchases ADD CONSTRAINT purchases_book_language_check CHECK (book_language IN ('ar','en'));
+UPDATE public.purchases SET book_language = 'ar' WHERE book_language IS NULL;
+
+-- 15.2 products — one row supports both language files. Existing single-file
+-- products keep working unmodified: file_path/version are untouched, and
+-- file_path_ar is backfilled FROM the existing file_path so an old purchase
+-- (book_language defaulted to 'ar' above) resolves to the exact same file it
+-- always downloaded. file_path_en starts NULL until an admin uploads the
+-- English PDF — the download route falls back to the Arabic file rather than
+-- erroring if English is requested but not yet uploaded.
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS file_path_ar TEXT;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS file_path_en TEXT;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS version_ar   TEXT DEFAULT '1.0';
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS version_en   TEXT DEFAULT '1.0';
+UPDATE public.products SET file_path_ar = file_path WHERE file_path_ar IS NULL AND file_path IS NOT NULL;
+UPDATE public.products SET version_ar   = version   WHERE version_ar IS NULL   AND version   IS NOT NULL;
+
+-- 15.3 Both language PDFs already uploaded directly to Storage (confirmed
+-- live: products/books/rwnk-guide-ar.pdf and products/books/rwnk-guide-en.pdf
+-- both exist, 4300099 and 3800606 bytes respectively) — but a direct Storage
+-- upload does NOT go through /api/admin/product-file, so the products row
+-- never learned these paths. This backfill wires them up in the same
+-- migration run instead of requiring a redundant re-upload through the admin
+-- panel purely to persist a path string. WHERE file_path_ar IS NULL / a
+-- specific legacy value means an admin who has ALREADY used the upload UI to
+-- set a different file (including replacing the one below with a newer
+-- version) is never overwritten by this backfill.
+UPDATE public.products SET file_path_ar = 'books/rwnk-guide-ar.pdf'
+  WHERE file_path_ar IS NULL OR file_path_ar = 'books/rwnk-guide-v1.pdf';
+UPDATE public.products SET file_path_en = 'books/rwnk-guide-en.pdf'
+  WHERE file_path_en IS NULL;
+
+-- 15.4 The legacy single-file column (file_path) still exists purely as the
+-- pre-bilingual fallback for a database that predates this feature or a
+-- request whose book_language couldn't be resolved. Repoint it at the
+-- current Arabic file too — books/rwnk-guide-v1.pdf was removed from
+-- Storage when the new files were uploaded (confirmed live: signing it
+-- returns 404 Object Not Found), so leaving file_path pointed at it would
+-- make every download fail with a storage error for any request that ever
+-- falls through to this legacy column. This exact UPDATE was already applied
+-- directly via the REST API during this audit (bypassing the need for DDL,
+-- since it's a plain data write) — included here too so a fresh database
+-- restored from this schema file ends up in the same correct state.
+UPDATE public.products SET file_path = 'books/rwnk-guide-ar.pdf'
+  WHERE file_path = 'books/rwnk-guide-v1.pdf';

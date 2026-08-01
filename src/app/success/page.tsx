@@ -9,7 +9,7 @@ import { C } from '@/lib/theme'
 import { getStoreSettings, DEFAULT_SETTINGS, type StoreSettings } from '@/lib/store-settings'
 import {
   IconCircleCheck, IconDownload, IconArrowRight,
-  IconFileText, IconLock, IconUser, IconAlertTriangle,
+  IconFileText, IconLock, IconUser, IconAlertTriangle, IconBrandWhatsapp,
 } from '@tabler/icons-react'
 
 interface PurchaseInfo {
@@ -22,7 +22,10 @@ interface PurchaseInfo {
   downloads_limit: number
   downloads_used: number
   created_at: string
+  book_language: 'ar' | 'en' | null
 }
+
+const LANGUAGE_LABEL: Record<string, string> = { ar: '🇸🇦 العربية', en: '🇺🇸 English' }
 
 type Step = 'loading' | 'not_found' | 'pending' | 'success' | 'done'
 
@@ -194,6 +197,7 @@ export default function SuccessPage() {
             <div style={{ background:C.primaryLight, border:`1px solid ${C.border}`, borderRadius:12, padding:'12px 16px', marginBottom:20 }}>
               {[
                 { label:'رقم الطلب',     value: info.invoice_number ?? '—' },
+                { label:'لغة الكتاب',    value: LANGUAGE_LABEL[info.book_language ?? 'ar'] ?? LANGUAGE_LABEL.ar },
                 { label:'تاريخ الشراء',  value: info.created_at ? new Date(info.created_at).toLocaleDateString('ar-KW', { year:'numeric', month:'long', day:'numeric' }) : '—' },
                 { label:'البريد',        value: info.email ?? '—'   },
                 { label:'المبلغ المدفوع',value: `${info.amount} ${info.currency === 'KWD' ? 'د.ك' : info.currency}`, color: C.primary },
@@ -281,15 +285,25 @@ export default function SuccessPage() {
             </div>
           )}
 
-          {/* Go to library */}
-          <Link href="/library" style={{
-            display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-            height:44, background:'#fff', border:`1px solid ${C.border}`, borderRadius:12,
-            fontSize:13, fontWeight:700, color:C.text2, textDecoration:'none',
-          }}>
-            الذهاب إلى مكتبتي
-            <IconArrowRight size={15} />
-          </Link>
+          {/* Go to library + support — stacks to a column below 360px (see globals.css) */}
+          <div className="success-actions-row" style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+            <Link href="/library" style={{
+              display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+              flex:'1 1 160px', height:44, background:'#fff', border:`1px solid ${C.border}`, borderRadius:12,
+              fontSize:13, fontWeight:700, color:C.text2, textDecoration:'none',
+            }}>
+              الذهاب إلى مكتبتي
+              <IconArrowRight size={15} />
+            </Link>
+            <a href={`https://wa.me/${settings.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer" style={{
+              display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+              flex:'1 1 160px', height:44, background:'#E1F5EE', border:'1px solid #C4EBDD', borderRadius:12,
+              fontSize:13, fontWeight:700, color:'#085041', textDecoration:'none',
+            }}>
+              <IconBrandWhatsapp size={16} />
+              تواصلي مع الدعم
+            </a>
+          </div>
 
           <p style={{ textAlign:'center', fontSize:11, color:C.text3, marginTop:12 }}>
             تم إرسال إيصال الشراء إلى {info?.email ?? 'بريدك الإلكتروني'}

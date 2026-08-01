@@ -12,6 +12,10 @@ const PM=[
   {id:'knet',Icon:KnetIcon,label:'KNET'},
   {id:'apple',Icon:ApplePayIcon,label:'Apple Pay'},
 ]
+const LANGS=[
+  {id:'ar' as const,flag:'🇸🇦',label:'العربية'},
+  {id:'en' as const,flag:'🇺🇸',label:'English'},
+]
 
 const ERROR_MESSAGES: Record<string, string> = {
   payment_failed:   'لم تكتمل عملية الدفع أو تم إلغاؤها. يمكنك المحاولة مرة أخرى.',
@@ -21,6 +25,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 export default function CheckoutPage() {
   const [pm,setPm]=useState('card')
+  const [bookLanguage,setBookLanguage]=useState<'ar'|'en'>('ar')
   const [email,setEmail]=useState('')
   const [loading,setLoading]=useState(false)
   const [error,setError]=useState('')
@@ -52,7 +57,7 @@ export default function CheckoutPage() {
     try {
       const checkoutRes = await fetch('/api/checkout', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, paymentMethod: pm }),
+        body: JSON.stringify({ email, paymentMethod: pm, bookLanguage }),
       })
       const checkoutJson = await checkoutRes.json()
       if (!checkoutRes.ok) throw new Error(checkoutJson.error ?? 'تعذّر إنشاء الطلب')
@@ -95,6 +100,19 @@ export default function CheckoutPage() {
         )}
 
         <div style={{background:'#fff',border:`1px solid ${BR}`,borderRadius:16,padding:20,marginBottom:14}}>
+          <div style={{fontSize:11,fontWeight:900,color:P,textTransform:'uppercase',marginBottom:14}}>لغة الكتاب</div>
+          <div className="checkout-lang-grid" role="radiogroup" aria-label="لغة الكتاب" style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8}}>
+            {LANGS.map(l=>(
+              <button key={l.id} type="button" role="radio" aria-checked={bookLanguage===l.id} onClick={()=>setBookLanguage(l.id)}
+                style={{minHeight:52,display:'flex',alignItems:'center',justifyContent:'center',gap:8,border:`1.5px solid ${bookLanguage===l.id?P:BR}`,background:bookLanguage===l.id?PL:'#fff',borderRadius:10,cursor:'pointer',fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif",transition:'all .15s'}}>
+                <span style={{fontSize:18}}>{l.flag}</span>
+                <span style={{fontSize:13,fontWeight:700,color:bookLanguage===l.id?P:T2}}>{l.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{background:'#fff',border:`1px solid ${BR}`,borderRadius:16,padding:20,marginBottom:14}}>
           <label htmlFor="checkout-email" style={{display:'block',fontSize:11,fontWeight:900,color:P,textTransform:'uppercase',marginBottom:14}}>بريدك الإلكتروني</label>
           <input id="checkout-email" type="email" placeholder="example@email.com" dir="ltr" autoComplete="email" required
             value={email} onChange={e=>{setEmail(e.target.value); if(error) setError('')}} onFocus={focus} onBlur={blur}
@@ -128,7 +146,12 @@ export default function CheckoutPage() {
           <div style={{width:46,height:62,borderRadius:9,flexShrink:0,background:'linear-gradient(145deg,#6747B2,#8b6dd4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>📖</div>
           <div>
             <div style={{fontSize:13,fontWeight:900,color:T1,marginBottom:2}}>{settings.product_name}</div>
-            <div style={{fontSize:11,color:T3}}>دليل التنظيف — PDF</div>
+            <div style={{fontSize:11,color:T3,display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
+              دليل التنظيف — PDF
+              <span style={{display:'inline-flex',alignItems:'center',gap:3,fontWeight:700,color:P,background:'#fff',padding:'1px 7px',borderRadius:999,border:`1px solid ${BR}`}}>
+                {LANGS.find(l=>l.id===bookLanguage)?.flag} {LANGS.find(l=>l.id===bookLanguage)?.label}
+              </span>
+            </div>
             <div style={{fontSize:11,fontWeight:700,color:P,marginTop:3}}>⚡ تحميل فوري + {settings.downloads_limit} تحميلات</div>
           </div>
         </div>

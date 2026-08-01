@@ -127,6 +127,7 @@ interface CompletedPurchaseInfo {
   currency: string
   created_at: string
   product_id: string | null
+  book_language: string | null
 }
 
 // Runs the "purchase just became completed, exactly once" side effects:
@@ -150,8 +151,10 @@ async function notifyPurchaseCompleted(sb: any, purchase: CompletedPurchaseInfo,
       sb.from('store_settings').select('store_name,email').single(),
     ])
 
+    const language = purchase.book_language === 'en' ? 'en' : 'ar'
     const result = await sendPurchaseConfirmationEmail({
       to: purchase.email,
+      language,
       storeName: settings?.store_name ?? 'رَوْنَق',
       productName: product?.name ?? 'الكتاب الرقمي',
       invoiceNumber: purchase.invoice_number ?? purchase.id,
@@ -195,8 +198,21 @@ async function verifyAndFinalize(
 ): Promise<FinalizeResult> {
   console.log(`[payment/callback] verifying purchase=${purchaseId} gateway=${gateway}`)
 
-  const { data: purchase, error } = await sb.from('purchases')
-    .select('id,status,payment_ref,email,guest_email,user_id,invoice_number,amount,currency,created_at,product_id').eq('id', purchaseId).single()
+  let { data: purchase, error } = await sb.from('purchases')
+    .select('id,status,payment_ref,email,guest_email,user_id,invoice_number,amount,currency,created_at,product_id,book_language').eq('id', purchaseId).single()
+
+  // '42703' = raw Postgres "undefined column", what a SELECT on a missing
+  // column returns (verified live) — the book_language migration
+  // (supabase/schema.sql §15) hasn't been applied yet. This is the core
+  // payment-verification query; it must never fail just because one extra
+  // column is missing, so retry without it (email falls back to Arabic).
+  if (error?.code === '42703') {
+    console.error(`[payment/callback] purchases.book_language column not found for purchase ${purchaseId} — the migration in supabase/schema.sql §15 has not been run. Retrying without it. RUN THE MIGRATION.`)
+    const retry = await sb.from('purchases')
+      .select('id,status,payment_ref,email,guest_email,user_id,invoice_number,amount,currency,created_at,product_id').eq('id', purchaseId).single()
+    purchase = retry.data
+    error = retry.error
+  }
 
   if (error || !purchase) {
     console.error(`[payment/callback] purchase ${purchaseId} not found — ${error?.message ?? 'no matching row'}`)
@@ -307,6 +323,7 @@ async function verifyAndFinalize(
       currency: purchase.currency,
       created_at: purchase.created_at,
       product_id: purchase.product_id,
+      book_language: purchase.book_language ?? null,
     }, linked?.userId ?? null, appUrl)
     return { status: 'completed', userId: linked?.userId ?? null, email: linked?.email ?? purchase.email ?? null }
   }

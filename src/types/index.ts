@@ -16,14 +16,6 @@ export interface Purchase {
   created_at: string
 }
 
-export interface Product {
-  id: string
-  name: string
-  description: string
-  price: number
-  currency: string
-  file_path: string
-}
 
 export interface Testimonial {
   id: string

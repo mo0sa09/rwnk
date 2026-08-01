@@ -155,6 +155,14 @@ table { max-width: 100%; }
   .library-item-actions button, .library-item-actions a { flex: 1; }
 }
 
+/* Success page — library/support button row. Explicit stacking breakpoint
+   instead of relying on flex-shrink to "just work" below each button's
+   min-content width, which risks the fixed 44px height clipping wrapped
+   text at the very narrow end of the required range (320–360px). */
+@media (max-width: 360px) {
+  .success-actions-row { flex-direction: column !important; }
+}
+
 /* ── Admin dashboard ──────────────────────────────────────────
    Below desktop width the fixed 210px rail becomes a top bar with
    a horizontally-scrollable icon strip instead of a tall stacked list —
