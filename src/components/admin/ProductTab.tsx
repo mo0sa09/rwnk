@@ -96,8 +96,13 @@ export function ProductTab() {
     setSaving(true)
     try {
       const res = await fetch('/api/admin/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
-      if (!res.ok) throw new Error((await res.json()).error ?? 'حدث خطأ')
-      toast.push('success', 'تم حفظ بيانات المنتج')
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'حدث خطأ')
+      if (json.droppedFields?.length > 0) {
+        toast.push('error', `تم الحفظ جزئياً — لم يُحفظ: ${json.droppedFields.join(', ')} (قاعدة البيانات تحتاج تحديث)`)
+      } else {
+        toast.push('success', 'تم حفظ بيانات المنتج')
+      }
     } catch (e: any) { toast.push('error', e.message ?? 'حدث خطأ في الحفظ') }
     setSaving(false)
   }
@@ -113,6 +118,11 @@ export function ProductTab() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'حدث خطأ')
       setProductFile(normalizeProductFile(json.data))
+      if (json.droppedFields?.length > 0) {
+        toast.push('error', `تحذير: لم يتم حفظ ${json.droppedFields.join(', ')} — قاعدة البيانات تحتاج تحديث (راجعي إعدادات الحساب)`)
+      } else {
+        toast.push('success', 'تم رفع الملف بنجاح')
+      }
     } catch (e: any) { toast.push('error', e.message ?? 'حدث خطأ') }
   }
 

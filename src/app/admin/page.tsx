@@ -19,6 +19,7 @@ import { CustomersTab } from '@/components/admin/CustomersTab'
 import { ProductTab } from '@/components/admin/ProductTab'
 import { WebsiteSettingsTab } from '@/components/admin/WebsiteSettingsTab'
 import { AccountSettingsTab } from '@/components/admin/AccountSettingsTab'
+import { SchemaStatusBanner } from '@/components/admin/SchemaStatusBanner'
 
 type Tab = 'dashboard' | 'analytics' | 'orders' | 'payments' | 'customers' | 'product' | 'website' | 'account'
 
@@ -85,6 +86,7 @@ function AdminShell() {
 
       {/* ══ MAIN ══ */}
       <main className="admin-main" style={{ flex: 1, marginRight: SIDEBAR_W, padding: '28px 24px 48px', minWidth: 0 }}>
+        <SchemaStatusBanner />
         {tab === 'dashboard' && <DashboardHome onNavigate={t => setTab(t as Tab)} />}
         {tab === 'analytics' && <AnalyticsTab />}
         {tab === 'orders' && <OrdersTab />}

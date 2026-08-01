@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseServerEnv } from '@/lib/env'
+import { insertWithSchemaFallback } from '@/lib/db-resilience'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,6 +19,7 @@ export async function POST(request: NextRequest) {
   }
 
   const email = typeof body?.email === 'string' ? body.email.trim() : ''
+  const customerName = typeof body?.customerName === 'string' ? body.customerName.trim().slice(0, 200) : ''
   const paymentMethod = VALID_METHODS.has(body?.paymentMethod) ? body.paymentMethod : 'card'
   const bookLanguage = VALID_LANGUAGES.has(body?.bookLanguage) ? body.bookLanguage : 'ar'
 
@@ -34,7 +36,7 @@ export async function POST(request: NextRequest) {
   const { data: settings, error: settingsErr } = await sb.from('store_settings').select('product_id,product_price,product_currency').single()
   if (settingsErr || !settings) return NextResponse.json({ error: 'تعذّر تحميل بيانات المنتج' }, { status: 500 })
 
-  const basePurchase = {
+  const purchasePayload: Record<string, unknown> = {
     product_id:     settings.product_id,
     email,
     guest_email:    email,
@@ -42,26 +44,20 @@ export async function POST(request: NextRequest) {
     currency:       settings.product_currency ?? 'KWD',
     status:         'pending',
     payment_method: paymentMethod,
+    book_language:  bookLanguage,
   }
+  if (customerName) purchasePayload.customer_name = customerName
 
-  let { data: purchase, error: insertErr } = await sb.from('purchases')
-    .insert({ ...basePurchase, book_language: bookLanguage })
-    .select('id,amount,currency').single()
-
-  // PGRST204 = "column not found in schema cache" — the book_language
-  // migration (supabase/schema.sql §15) hasn't been applied to this
-  // database yet. A previous live audit found that an unapplied migration
-  // referenced by a write can silently break the ENTIRE write, not just the
-  // new field — checkout is the one path in this app that must never break,
-  // so this retries without book_language rather than failing the purchase
-  // outright. The customer's language choice is lost for this one purchase
-  // (defaults to 'ar' downstream), but they can still pay and receive their
-  // book — never a hard failure just because a column is missing.
-  if (insertErr?.code === 'PGRST204') {
-    console.error(`[checkout] purchases.book_language column not found — the migration in supabase/schema.sql §15 has not been run against this database. Retrying insert WITHOUT book_language so checkout still works (customer's language selection for this purchase will be lost, defaulting to 'ar'). RUN THE MIGRATION.`)
-    const retry = await sb.from('purchases').insert(basePurchase).select('id,amount,currency').single()
-    purchase = retry.data
-    insertErr = retry.error
+  // book_language and customer_name are both recent additions
+  // (supabase/schema.sql §15/§16) that may not exist yet on a database that
+  // hasn't had those migrations applied. Checkout is the one path in this
+  // app that must never hard-fail just because an optional column is
+  // missing, so this drops whichever of them the live schema doesn't have
+  // (independently — either, both, or neither) and always completes the
+  // insert with whatever columns DO exist.
+  const { data: purchase, error: insertErr, droppedFields } = await insertWithSchemaFallback<{ id: string; amount: number; currency: string }>(sb, 'purchases', purchasePayload)
+  if (droppedFields.length > 0) {
+    console.error(`[checkout] purchases columns not found — dropped from insert: ${droppedFields.join(', ')}. The migration in supabase/schema.sql has not been fully run against this database. RUN THE MIGRATION.`)
   }
 
   if (insertErr || !purchase) {

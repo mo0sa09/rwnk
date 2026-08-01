@@ -41,8 +41,16 @@ export function ContentTab() {
     setSaving(true)
     try {
       const res = await fetch('/api/admin/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(s) })
-      if (!res.ok) throw new Error((await res.json()).error ?? 'حدث خطأ')
-      setMsg('✓ تم الحفظ بنجاح')
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'حدث خطأ')
+      // updateWithSchemaFallback (src/lib/db-resilience.ts) saves everything
+      // it can and reports fields it had to drop because their column
+      // doesn't exist yet on the live database — surface that precisely
+      // instead of a blanket "saved" that overstates what actually persisted.
+      const dropped: string[] = json.droppedFields ?? []
+      setMsg(dropped.length > 0
+        ? `⚠ تم الحفظ جزئياً — الحقول التالية تحتاج تحديث قاعدة البيانات ولم تُحفظ: ${dropped.join(', ')}`
+        : '✓ تم الحفظ بنجاح')
     } catch (e: any) {
       setMsg(`✗ ${e.message}`)
     }

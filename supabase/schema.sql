@@ -641,3 +641,12 @@ UPDATE public.products SET file_path_en = 'books/rwnk-guide-en.pdf'
 -- restored from this schema file ends up in the same correct state.
 UPDATE public.products SET file_path = 'books/rwnk-guide-ar.pdf'
   WHERE file_path = 'books/rwnk-guide-v1.pdf';
+
+-- ═══════════════════════════════════════════════════════════
+-- 16. purchases.customer_name — optional, collected at checkout, shown
+-- in the admin new-order notification email alongside email/amount/
+-- language/date. Nullable and never required: this store has always been
+-- guest-checkout-by-email-only, and gating checkout on a new required field
+-- would be a bigger behavior change than "send a better admin email."
+-- ═══════════════════════════════════════════════════════════
+ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS customer_name TEXT;

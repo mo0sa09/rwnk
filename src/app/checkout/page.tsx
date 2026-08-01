@@ -27,6 +27,7 @@ export default function CheckoutPage() {
   const [pm,setPm]=useState('card')
   const [bookLanguage,setBookLanguage]=useState<'ar'|'en'>('ar')
   const [email,setEmail]=useState('')
+  const [customerName,setCustomerName]=useState('')
   const [loading,setLoading]=useState(false)
   const [error,setError]=useState('')
   const [banner,setBanner]=useState('')
@@ -57,7 +58,7 @@ export default function CheckoutPage() {
     try {
       const checkoutRes = await fetch('/api/checkout', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, paymentMethod: pm, bookLanguage }),
+        body: JSON.stringify({ email, customerName, paymentMethod: pm, bookLanguage }),
       })
       const checkoutJson = await checkoutRes.json()
       if (!checkoutRes.ok) throw new Error(checkoutJson.error ?? 'تعذّر إنشاء الطلب')
@@ -120,6 +121,11 @@ export default function CheckoutPage() {
             style={{...inp,height:48,fontSize:14}}/>
           <p style={{fontSize:11,color:T3,marginTop:6}}>سيُرسل الكتاب لهذا البريد · ستنشأ حسابك تلقائياً بعد الدفع</p>
           {error && <p id="checkout-email-error" role="alert" style={{fontSize:12,color:'#A32D2D',marginTop:8,padding:'8px 12px',background:'#FEF2F2',borderRadius:8}}>{error}</p>}
+
+          <label htmlFor="checkout-name" style={{display:'block',fontSize:11,fontWeight:900,color:P,textTransform:'uppercase',margin:'16px 0 14px'}}>الاسم <span style={{fontWeight:400,color:T3,textTransform:'none'}}>(اختياري)</span></label>
+          <input id="checkout-name" type="text" placeholder="اسمك الكامل" autoComplete="name"
+            value={customerName} onChange={e=>setCustomerName(e.target.value)} onFocus={focus} onBlur={blur}
+            style={{...inp,height:48,fontSize:14}}/>
         </div>
 
         <div style={{background:'#fff',border:`1px solid ${BR}`,borderRadius:16,padding:20}}>

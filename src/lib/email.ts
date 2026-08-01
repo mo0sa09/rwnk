@@ -181,12 +181,108 @@ function buildEmailHtml(p: PurchaseEmailParams): string {
 </html>`
 }
 
+// Shared Resend HTTP call for both email functions below. Retries once on a
+// transient failure (network exception, or a 5xx — Resend's own infra
+// having a bad moment) after a short delay; does NOT retry on a 4xx, since
+// that means the request itself is wrong (bad API key, malformed payload,
+// unverified sender domain) and an identical retry would just fail the same
+// way. Never throws — every caller gets a result object back, and every
+// failure is logged with enough detail (status + body, or the exception
+// message) to diagnose from server logs alone. This is what "emails must
+// never silently fail" means in practice: not that sending can't fail, but
+// that a failure is always visible and never mistaken for success.
+async function sendResendEmail(logLabel: string, apiKey: string, from: string, to: string, subject: string, html: string): Promise<SendEmailResult> {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({ from, to: [to], subject, html }),
+      })
+      const bodyText = await res.text()
+      if (res.ok) {
+        console.log(`[email] ${logLabel} sent to ${to}${attempt > 1 ? ` (succeeded on retry ${attempt})` : ''}`)
+        return { ok: true }
+      }
+      const retryable = res.status >= 500
+      console.error(`[email] ${logLabel} to ${to} failed — HTTP ${res.status}: ${bodyText.slice(0, 500)}${retryable && attempt === 1 ? ' — retrying once' : ''}`)
+      if (!retryable || attempt === 2) return { ok: false, reason: 'send_failed' }
+    } catch (err: any) {
+      console.error(`[email] ${logLabel} to ${to} threw: ${err?.message ?? err}${attempt === 1 ? ' — retrying once' : ''}`)
+      if (attempt === 2) return { ok: false, reason: 'send_failed' }
+    }
+    await new Promise(resolve => setTimeout(resolve, 800))
+  }
+  return { ok: false, reason: 'send_failed' }
+}
+
+export interface AdminOrderNotificationParams {
+  to: string
+  storeName: string
+  customerName: string | null
+  customerEmail: string
+  amount: number
+  currency: string
+  language: EmailLanguage
+  invoiceNumber: string
+  purchaseDate: string // ISO string
+}
+
+// Plain-text, not the branded HTML template — this goes to the store owner's
+// inbox as an operational notice, not a customer-facing receipt, so it's
+// optimized for being scanned in a notifications list rather than for brand
+// presentation. Same never-throws contract as sendPurchaseConfirmationEmail:
+// this fires from the same best-effort post-payment hook and must never be
+// allowed to affect an already-completed purchase.
+export async function sendAdminOrderNotification(p: AdminOrderNotificationParams): Promise<SendEmailResult> {
+  const apiKey = process.env.RESEND_API_KEY
+  const from = process.env.EMAIL_FROM
+
+  if (!apiKey || !from) {
+    console.warn(`[email] admin order notification NOT sent — RESEND_API_KEY/EMAIL_FROM not configured.`)
+    return { ok: false, reason: 'not_configured' }
+  }
+
+  const date = formatDate(p.purchaseDate, 'ar')
+  const languageLabel = p.language === 'en' ? 'English 🇺🇸' : 'العربية 🇸🇦'
+  const amount = formatAmount(p.amount, p.currency, 'ar')
+
+  const html = `<!doctype html>
+<html lang="ar" dir="rtl">
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:24px;background:#FAFAFA;font-family:Tahoma,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #EDE8F5;">
+    <tr><td style="background:#1A1228;padding:18px 24px;">
+      <div style="font-size:16px;font-weight:900;color:#fff;">🔔 طلب جديد — ${p.storeName}</div>
+    </td></tr>
+    <tr><td style="padding:20px 24px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        ${[
+          ['العميل', p.customerName || '—'],
+          ['البريد الإلكتروني', p.customerEmail],
+          ['المبلغ', amount],
+          ['اللغة المختارة', languageLabel],
+          ['رقم الفاتورة', p.invoiceNumber],
+          ['تاريخ الشراء', date],
+        ].map(([label, value]) => `
+        <tr><td style="padding:8px 0;font-size:13px;color:#9890AA;">${label}</td>
+            <td style="padding:8px 0;font-size:13px;font-weight:700;color:#1A1228;text-align:left;" dir="ltr">${value}</td></tr>`).join('')}
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+
+  return sendResendEmail('admin order notification', apiKey, from, p.to, `🔔 طلب جديد — ${amount} — ${p.customerEmail}`, html)
+}
+
 // Never throws. Returns {ok:false, reason:'not_configured'} if RESEND_API_KEY
 // or EMAIL_FROM aren't set (logged once, treated as a normal — not
 // exceptional — deployment state, since email is explicitly optional per
 // the "never fail the purchase" requirement) and {ok:false,
-// reason:'send_failed'} for any network/API-level failure, with the actual
-// error detail always logged server-side either way.
+// reason:'send_failed'} for any network/API-level failure (after one retry
+// on transient errors — see sendResendEmail), with the actual error detail
+// always logged server-side either way.
 export async function sendPurchaseConfirmationEmail(p: PurchaseEmailParams): Promise<SendEmailResult> {
   const apiKey = process.env.RESEND_API_KEY
   const from = process.env.EMAIL_FROM
@@ -197,27 +293,5 @@ export async function sendPurchaseConfirmationEmail(p: PurchaseEmailParams): Pro
   }
 
   const subject = COPY[p.language].subject(p.invoiceNumber)
-
-  try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        from,
-        to: [p.to],
-        subject,
-        html: buildEmailHtml(p),
-      }),
-    })
-    const bodyText = await res.text()
-    if (!res.ok) {
-      console.error(`[email] purchase confirmation to ${p.to} (language=${p.language}) failed — HTTP ${res.status}: ${bodyText.slice(0, 500)}`)
-      return { ok: false, reason: 'send_failed' }
-    }
-    console.log(`[email] purchase confirmation sent to ${p.to} (language=${p.language}) for invoice ${p.invoiceNumber}`)
-    return { ok: true }
-  } catch (err: any) {
-    console.error(`[email] purchase confirmation to ${p.to} (language=${p.language}) threw: ${err?.message ?? err}`)
-    return { ok: false, reason: 'send_failed' }
-  }
+  return sendResendEmail(`purchase confirmation (language=${p.language}, invoice=${p.invoiceNumber})`, apiKey, from, p.to, subject, buildEmailHtml(p))
 }

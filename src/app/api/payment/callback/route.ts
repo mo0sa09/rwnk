@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseServerEnv } from '@/lib/env'
 import { deriveMyFatoorahVerdict, decideFinalize, resultStatusToDestination, extractMyFatoorahWebhookPurchaseId, type GatewayStatus } from '@/lib/payment-verify'
 import { ensureUserLinked, mintDownloadToken } from '@/lib/payment-access'
-import { sendPurchaseConfirmationEmail } from '@/lib/email'
+import { sendPurchaseConfirmationEmail, sendAdminOrderNotification } from '@/lib/email'
 
 export const dynamic = 'force-dynamic'
 
@@ -128,6 +128,7 @@ interface CompletedPurchaseInfo {
   created_at: string
   product_id: string | null
   book_language: string | null
+  customer_name: string | null
 }
 
 // Runs the "purchase just became completed, exactly once" side effects:
@@ -167,6 +168,26 @@ async function notifyPurchaseCompleted(sb: any, purchase: CompletedPurchaseInfo,
     if (!result.ok) {
       console.warn(`[payment/callback] purchase ${purchase.id} — confirmation email not sent (${result.reason}); customer can still reach /success directly`)
     }
+
+    // Admin's own "new order" notification, sent to the store's own contact
+    // address (store_settings.email — the only concept of an "admin/owner
+    // email" this schema has). Independent try/catch from the customer email
+    // above: a failure here must never be attributed to (or block) the
+    // customer-facing send, and vice versa.
+    const adminResult = await sendAdminOrderNotification({
+      to: settings?.email ?? 'hello@rwnk.co',
+      storeName: settings?.store_name ?? 'رَوْنَق',
+      customerName: purchase.customer_name,
+      customerEmail: purchase.email,
+      amount: purchase.amount,
+      currency: purchase.currency,
+      language,
+      invoiceNumber: purchase.invoice_number ?? purchase.id,
+      purchaseDate: purchase.created_at,
+    })
+    if (!adminResult.ok) {
+      console.warn(`[payment/callback] purchase ${purchase.id} — admin order notification not sent (${adminResult.reason})`)
+    }
   } catch (err: any) {
     // Defensive: sendPurchaseConfirmationEmail itself never throws, but the
     // product/settings lookups above could (network hiccup, malformed row).
@@ -198,21 +219,16 @@ async function verifyAndFinalize(
 ): Promise<FinalizeResult> {
   console.log(`[payment/callback] verifying purchase=${purchaseId} gateway=${gateway}`)
 
-  let { data: purchase, error } = await sb.from('purchases')
-    .select('id,status,payment_ref,email,guest_email,user_id,invoice_number,amount,currency,created_at,product_id,book_language').eq('id', purchaseId).single()
-
-  // '42703' = raw Postgres "undefined column", what a SELECT on a missing
-  // column returns (verified live) — the book_language migration
-  // (supabase/schema.sql §15) hasn't been applied yet. This is the core
-  // payment-verification query; it must never fail just because one extra
-  // column is missing, so retry without it (email falls back to Arabic).
-  if (error?.code === '42703') {
-    console.error(`[payment/callback] purchases.book_language column not found for purchase ${purchaseId} — the migration in supabase/schema.sql §15 has not been run. Retrying without it. RUN THE MIGRATION.`)
-    const retry = await sb.from('purchases')
-      .select('id,status,payment_ref,email,guest_email,user_id,invoice_number,amount,currency,created_at,product_id').eq('id', purchaseId).single()
-    purchase = retry.data
-    error = retry.error
-  }
+  // select('*') rather than an explicit column list deliberately: an
+  // explicit list that names a column the live database doesn't have yet
+  // (book_language, customer_name — both from migrations that may not be
+  // applied) fails the ENTIRE query with '42703' (raw Postgres "undefined
+  // column"), and this is the core payment-verification query — it must
+  // never fail just because one optional column is missing. select('*')
+  // simply returns whichever columns actually exist, so any field read
+  // below (purchase.book_language, purchase.customer_name, ...) needs to
+  // tolerate being undefined — which it already does throughout this file.
+  const { data: purchase, error } = await sb.from('purchases').select('*').eq('id', purchaseId).single()
 
   if (error || !purchase) {
     console.error(`[payment/callback] purchase ${purchaseId} not found — ${error?.message ?? 'no matching row'}`)
@@ -324,6 +340,7 @@ async function verifyAndFinalize(
       created_at: purchase.created_at,
       product_id: purchase.product_id,
       book_language: purchase.book_language ?? null,
+      customer_name: purchase.customer_name ?? null,
     }, linked?.userId ?? null, appUrl)
     return { status: 'completed', userId: linked?.userId ?? null, email: linked?.email ?? purchase.email ?? null }
   }

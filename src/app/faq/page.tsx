@@ -8,6 +8,11 @@ import { getStoreSettings } from '@/lib/store-settings'
 
 const P = '#6747B2', T1 = '#1A1228', T2 = '#4A4060', BR = '#EDE8F5'
 
+// Force per-request rendering so admin edits to FAQs/store settings are
+// never stuck behind a stale build-time snapshot — see the detailed
+// comment on this same export in src/app/page.tsx.
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'الأسئلة الشائعة',
   description: 'إجابات على أكثر الأسئلة شيوعاً حول كتاب رَوْنَق ودليل التنظيف الاحترافي.',

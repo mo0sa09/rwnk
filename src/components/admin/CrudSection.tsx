@@ -34,6 +34,7 @@ export function CrudSection({ resource, title, description, fields, emptyItem, r
   const [editing, setEditing] = useState<any | null>(null)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
+  const [migrationError, setMigrationError] = useState<string | null>(null)
 
   // Mount/resource-change fetch lives inline in the effect (not a call to an
   // outer `load`) per react-hooks/set-state-in-effect — calling a
@@ -45,7 +46,10 @@ export function CrudSection({ resource, title, description, fields, emptyItem, r
       try {
         const res = await fetch(`/api/admin/${resource}`)
         const json = await res.json()
-        if (!cancelled) setItems(json.data ?? [])
+        if (!cancelled) {
+          setItems(json.data ?? [])
+          setMigrationError(json.migrationRequired ? json.error : null)
+        }
       } catch { /* keep previous items on transient failure */ }
       if (!cancelled) setLoading(false)
     })()
@@ -59,6 +63,7 @@ export function CrudSection({ resource, title, description, fields, emptyItem, r
       const res = await fetch(`/api/admin/${resource}`)
       const json = await res.json()
       setItems(json.data ?? [])
+      setMigrationError(json.migrationRequired ? json.error : null)
     } catch { /* keep previous items on transient failure */ }
     setLoading(false)
   }
@@ -77,7 +82,10 @@ export function CrudSection({ resource, title, description, fields, emptyItem, r
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'حدث خطأ في الحفظ')
       setEditing(null)
-      setMsg('✓ تم الحفظ بنجاح')
+      const dropped: string[] = json.droppedFields ?? []
+      setMsg(dropped.length > 0
+        ? `⚠ تم الحفظ جزئياً — الحقول التالية تحتاج تحديث قاعدة البيانات ولم تُحفظ: ${dropped.join(', ')}`
+        : '✓ تم الحفظ بنجاح')
       await load()
     } catch (e: any) {
       setMsg(`✗ ${e.message}`)
@@ -112,7 +120,7 @@ export function CrudSection({ resource, title, description, fields, emptyItem, r
           <h1 style={{ fontSize: 20, fontWeight: 900, color: C.text1, marginBottom: 4 }}>{title}</h1>
           <p style={{ fontSize: 13, color: C.text3 }}>{description}</p>
         </div>
-        <button onClick={() => setEditing({ ...emptyItem })} style={{ height: 40, padding: '0 18px', background: C.primary, color: W, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 900, cursor: 'pointer', fontFamily: "var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif" }}>
+        <button onClick={() => setEditing({ ...emptyItem })} disabled={!!migrationError} style={{ height: 40, padding: '0 18px', background: migrationError ? C.surface : C.primary, color: migrationError ? C.text3 : W, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 900, cursor: migrationError ? 'not-allowed' : 'pointer', fontFamily: "var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif" }}>
           + إضافة جديد
         </button>
       </div>
@@ -120,6 +128,12 @@ export function CrudSection({ resource, title, description, fields, emptyItem, r
       {msg && (
         <div style={{ marginBottom: 14, padding: '10px 16px', background: msg.startsWith('✓') ? C.secondaryBg : C.errorBg, borderRadius: 10, fontSize: 13, fontWeight: 700, color: msg.startsWith('✓') ? '#085041' : '#A32D2D' }}>
           {msg}
+        </div>
+      )}
+
+      {migrationError && (
+        <div style={{ marginBottom: 14, padding: '10px 16px', background: '#FFF7E6', border: '1px solid #F5C453', borderRadius: 10, fontSize: 13, fontWeight: 700, color: '#7A5300' }}>
+          {migrationError}
         </div>
       )}
 

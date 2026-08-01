@@ -4,7 +4,14 @@ import { C } from '@/lib/theme'
 import { supabase } from '@/lib/supabase'
 import { card, cardTitle, inp, label as labelStyle, focus, blur, btnPrimary, PageHeader, LoadingBlock, useToast } from './adminUi'
 
-interface SystemStatus { supabaseConnected: boolean; paymentGateway: string; paymentGatewayKeyConfigured: boolean; appUrl: string }
+interface SystemStatus {
+  supabaseConnected: boolean
+  paymentGateway: string
+  paymentGatewayKeyConfigured: boolean
+  emailConfigured: boolean
+  appUrl: string
+  schema?: { migrationRequired: boolean; missingTables: string[]; missingColumns: Record<string, string[]> }
+}
 
 export function AccountSettingsTab() {
   const toast = useToast()
@@ -82,16 +89,21 @@ export function AccountSettingsTab() {
 
       <div style={card}>
         <div style={cardTitle}>حالة النظام</div>
-        {[
-          { label: 'Supabase', ok: status?.supabaseConnected ?? false, status: status?.supabaseConnected ? '✓ متصل' : '✗ غير متصل' },
-          { label: 'بوابة الدفع', ok: status?.paymentGatewayKeyConfigured ?? false, status: `${status?.paymentGateway ?? '—'} ${status?.paymentGatewayKeyConfigured ? '✓' : '✗ مفتاح مفقود'}` },
-          { label: 'رابط الموقع', ok: true, status: status?.appUrl ?? '—' },
-        ].map((r, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 0', borderBottom: i < 2 ? `1px solid ${C.border}` : 'none' }}>
-            <span style={{ fontSize: 13, color: C.text2 }}>{r.label}</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: r.ok ? '#085041' : '#A32D2D', background: r.ok ? C.secondaryBg : C.errorBg, padding: '3px 10px', borderRadius: 999 }}>{r.status}</span>
-          </div>
-        ))}
+        {(() => {
+          const rows = [
+            { label: 'Supabase', ok: status?.supabaseConnected ?? false, status: status?.supabaseConnected ? '✓ متصل' : '✗ غير متصل' },
+            { label: 'بوابة الدفع', ok: status?.paymentGatewayKeyConfigured ?? false, status: `${status?.paymentGateway ?? '—'} ${status?.paymentGatewayKeyConfigured ? '✓' : '✗ مفتاح مفقود'}` },
+            { label: 'البريد الإلكتروني (Resend)', ok: status?.emailConfigured ?? false, status: status?.emailConfigured ? '✓ مُفعّل' : '✗ مفتاح API أو عنوان المرسل مفقود' },
+            { label: 'مطابقة قاعدة البيانات', ok: status?.schema ? !status.schema.migrationRequired : false, status: !status?.schema ? '—' : status.schema.migrationRequired ? `✗ تحديث مطلوب (${status.schema.missingTables.length} جدول، ${Object.keys(status.schema.missingColumns).length} جدول به حقول ناقصة)` : '✓ محدّثة' },
+            { label: 'رابط الموقع', ok: true, status: status?.appUrl ?? '—' },
+          ]
+          return rows.map((r, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 0', borderBottom: i < rows.length - 1 ? `1px solid ${C.border}` : 'none' }}>
+              <span style={{ fontSize: 13, color: C.text2 }}>{r.label}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: r.ok ? '#085041' : '#A32D2D', background: r.ok ? C.secondaryBg : C.errorBg, padding: '3px 10px', borderRadius: 999 }}>{r.status}</span>
+            </div>
+          ))
+        })()}
       </div>
     </div>
   )

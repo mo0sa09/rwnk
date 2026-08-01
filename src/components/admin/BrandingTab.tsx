@@ -45,8 +45,13 @@ export function BrandingTab() {
     setSaving(true)
     try {
       const res = await fetch('/api/admin/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
-      if (!res.ok) throw new Error((await res.json()).error ?? 'حدث خطأ')
-      toast.push('success', 'تم حفظ الهوية البصرية')
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'حدث خطأ')
+      if (json.droppedFields?.length > 0) {
+        toast.push('error', `تم الحفظ جزئياً — لم يُحفظ: ${json.droppedFields.join(', ')} (قاعدة البيانات تحتاج تحديث)`)
+      } else {
+        toast.push('success', 'تم حفظ الهوية البصرية')
+      }
     } catch (e: any) { toast.push('error', e.message ?? 'حدث خطأ في الحفظ') }
     setSaving(false)
   }

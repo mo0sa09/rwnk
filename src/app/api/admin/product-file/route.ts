@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { getAdminDb } from '@/lib/admin-db'
+import { updateWithSchemaFallback } from '@/lib/db-resilience'
 
 // Reads the single product row (there's only ever one — this is a
 // single-product store) so the admin UI can show the current file/version.
@@ -38,27 +39,25 @@ export async function PATCH(request: NextRequest) {
   const { data: existing, error: findErr } = await sb.from('products').select('id').single()
   if (findErr || !existing) return NextResponse.json({ error: findErr?.message ?? 'المنتج غير موجود' }, { status: 500 })
 
-  let { data, error } = await sb.from('products').update(payload).eq('id', existing.id).select().single()
-
-  // PGRST204 = PostgREST "column not found in schema cache" — the bilingual
-  // migration (supabase/schema.sql §15) hasn't been applied to this database
-  // yet. Retry with only the columns that predate it (file_path/version) so
-  // an admin can still update SOMETHING rather than getting a hard failure;
-  // the _ar/_en fields are silently dropped from this one write until the
-  // migration runs (loudly logged so it's diagnosable, not silent to the server).
-  if (error?.code === 'PGRST204') {
-    console.error('[admin/product-file] one or more of file_path_ar/version_ar/file_path_en/version_en not found — the migration in supabase/schema.sql §15 has not been run against this database. Retrying with only legacy fields. RUN THE MIGRATION.')
-    const legacyOnly: Record<string, string> = {}
-    if (payload.file_path) legacyOnly.file_path = payload.file_path
-    if (payload.version) legacyOnly.version = payload.version
-    if (Object.keys(legacyOnly).length === 0) {
-      return NextResponse.json({ error: 'تعذّر الحفظ — يجب تطبيق تحديث قاعدة البيانات أولاً (راجع سجلات الخادم)' }, { status: 500 })
-    }
-    const retry = await sb.from('products').update(legacyOnly).eq('id', existing.id).select().single()
-    data = retry.data
-    error = retry.error
+  // The bilingual columns (file_path_ar/version_ar/file_path_en/version_en)
+  // may not exist yet on a database that hasn't had supabase/schema.sql §15
+  // applied. Previously this route's fallback dropped ALL of them at once
+  // and retried with ONLY legacy file_path/version — but the admin UI always
+  // PATCHes one language at a time (see ProductTab.handleDigitalFileUploaded),
+  // so a payload of just {file_path_en, version_en} had nothing left to fall
+  // back to and the save hard-failed. Concretely: uploading the English PDF
+  // from the dashboard could never succeed until the migration ran — which
+  // is very likely the real root cause of "English selected but Arabic PDF
+  // downloaded," not a bug in the language-selection flow itself. Using the
+  // shared column-by-column fallback here saves whatever CAN be saved and
+  // reports exactly what was dropped, same as store_settings.
+  const { data, error, droppedFields } = await updateWithSchemaFallback(sb, 'products', 'id', existing.id, payload)
+  if (error) {
+    console.error(`[admin/product-file] update failed: ${error.message}${droppedFields.length ? ` (already dropped: ${droppedFields.join(', ')})` : ''}`)
+    return NextResponse.json({ error: error.message, droppedFields }, { status: 500 })
   }
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data })
+  if (droppedFields.length > 0) {
+    console.warn(`[admin/product-file] saved, but these fields don't exist on the live database yet and were skipped: ${droppedFields.join(', ')} — run the pending migration (supabase/schema.sql §15) to enable bilingual file storage.`)
+  }
+  return NextResponse.json({ data, droppedFields })
 }
