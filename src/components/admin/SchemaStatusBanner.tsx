@@ -19,15 +19,34 @@ export function SchemaStatusBanner() {
   const [schema, setSchema] = useState<SchemaAudit | null>(null)
   const [expanded, setExpanded] = useState(false)
   const [dismissed, setDismissed] = useState(false)
+  const [checking, setChecking] = useState(false)
+
+  // cache: 'no-store' on top of the route handler's own force-dynamic +
+  // Cache-Control: no-store (see /api/admin/system-status) — this is a
+  // live diagnostic, so nothing between the database and this component is
+  // allowed to serve a stale answer (a browser back/forward cache hit here
+  // would otherwise keep showing "migration required" for a migration that
+  // already ran).
+  async function check() {
+    setChecking(true)
+    try {
+      const res = await fetch('/api/admin/system-status', { cache: 'no-store' })
+      const json = await res.json().catch(() => null)
+      if (res.ok && json?.data?.schema) setSchema(json.data.schema)
+    } catch {}
+    setChecking(false)
+  }
 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
+      setChecking(true)
       try {
-        const res = await fetch('/api/admin/system-status')
+        const res = await fetch('/api/admin/system-status', { cache: 'no-store' })
         const json = await res.json().catch(() => null)
         if (!cancelled && res.ok && json?.data?.schema) setSchema(json.data.schema)
       } catch {}
+      if (!cancelled) setChecking(false)
     })()
     return () => { cancelled = true }
   }, [])
@@ -56,6 +75,9 @@ export function SchemaStatusBanner() {
           {' '}— بعض التعديلات من لوحة التحكم لن تُحفظ حتى يتم تشغيل التحديث في Supabase SQL Editor (ملف supabase/schema.sql).
         </span>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          <button onClick={check} disabled={checking} style={{ background: 'none', border: '1px solid #F5C453', color: '#7A5300', borderRadius: 8, padding: '4px 10px', fontSize: 12, fontWeight: 700, cursor: checking ? 'wait' : 'pointer' }}>
+            {checking ? 'جاري الفحص...' : '↻ تحقق الآن'}
+          </button>
           <button onClick={() => setExpanded(v => !v)} style={{ background: 'none', border: '1px solid #F5C453', color: '#7A5300', borderRadius: 8, padding: '4px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
             {expanded ? 'إخفاء التفاصيل' : 'عرض التفاصيل'}
           </button>

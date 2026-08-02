@@ -18,7 +18,7 @@ export function PaymentsTab() {
         const [aRes, oRes, sRes] = await Promise.all([
           fetch('/api/admin/analytics?range=daily'),
           fetch('/api/admin/orders?pageSize=15'),
-          fetch('/api/admin/system-status'),
+          fetch('/api/admin/system-status', { cache: 'no-store' }),
         ])
         const [aJson, oJson, sJson] = await Promise.all([aRes.json(), oRes.json(), sRes.json()])
         if (cancelled) return

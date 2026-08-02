@@ -21,13 +21,28 @@ export function AccountSettingsTab() {
   const [pwd, setPwd] = useState('')
   const [pwd2, setPwd2] = useState('')
   const [saving, setSaving] = useState(false)
+  const [checkingStatus, setCheckingStatus] = useState(false)
+
+  // cache: 'no-store' — this reads live database/env state, so a browser
+  // cache hit here would show a migration as still pending after it already
+  // ran (or vice versa). The route itself also sends Cache-Control: no-store
+  // (see /api/admin/system-status) — belt and suspenders across both layers.
+  async function checkStatus() {
+    setCheckingStatus(true)
+    try {
+      const statusRes = await fetch('/api/admin/system-status', { cache: 'no-store' })
+      const statusJson = await statusRes.json().catch(() => null)
+      if (statusRes.ok && statusJson?.data) setStatus(statusJson.data)
+    } catch {}
+    setCheckingStatus(false)
+  }
 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
       const [{ data: userData }, statusRes] = await Promise.all([
         supabase.auth.getUser(),
-        fetch('/api/admin/system-status'),
+        fetch('/api/admin/system-status', { cache: 'no-store' }),
       ])
       const statusJson = await statusRes.json().catch(() => null)
       if (cancelled) return
@@ -88,7 +103,12 @@ export function AccountSettingsTab() {
       </div>
 
       <div style={card}>
-        <div style={cardTitle}>حالة النظام</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ ...cardTitle, marginBottom: 0 }}>حالة النظام</div>
+          <button onClick={checkStatus} disabled={checkingStatus} style={{ background: 'none', border: `1px solid ${C.border}`, color: C.text2, borderRadius: 8, padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: checkingStatus ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+            {checkingStatus ? 'جاري الفحص...' : '↻ تحقق الآن'}
+          </button>
+        </div>
         {(() => {
           const rows = [
             { label: 'Supabase', ok: status?.supabaseConnected ?? false, status: status?.supabaseConnected ? '✓ متصل' : '✗ غير متصل' },

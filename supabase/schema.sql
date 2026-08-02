@@ -86,6 +86,20 @@ CREATE TABLE IF NOT EXISTS public.purchases (
 ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ;
 ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS transaction_details JSONB;
 
+-- 15.1 purchases.book_language — captured at checkout, persisted through the
+-- entire payment lifecycle, read at download/email time to pick the right
+-- file. Defaults new rows to 'ar'; existing rows are explicitly backfilled
+-- to 'ar' below so no purchase is ever left without a value. Defined HERE
+-- (immediately after the table, not down in section 15 where the bilingual
+-- feature is otherwise documented) because the user_library VIEW in section
+-- 9 references this column, and CREATE VIEW resolves column references at
+-- creation time — this must exist before ANYTHING later in the file can
+-- reference it, on a completely fresh database as much as an existing one.
+ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS book_language TEXT DEFAULT 'ar';
+ALTER TABLE public.purchases DROP CONSTRAINT IF EXISTS purchases_book_language_check;
+ALTER TABLE public.purchases ADD CONSTRAINT purchases_book_language_check CHECK (book_language IN ('ar','en'));
+UPDATE public.purchases SET book_language = 'ar' WHERE book_language IS NULL;
+
 -- Auto invoice number
 CREATE OR REPLACE FUNCTION public.generate_invoice_number()
 RETURNS TRIGGER AS $$
@@ -137,10 +151,15 @@ ALTER TABLE public.purchases       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.download_tokens ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.downloads       ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "profiles_own"  ON public.profiles;
 CREATE POLICY "profiles_own"    ON public.profiles        FOR ALL    USING (auth.uid() = id);
+DROP POLICY IF EXISTS "products_read" ON public.products;
 CREATE POLICY "products_read"   ON public.products        FOR SELECT USING (is_active = TRUE);
+DROP POLICY IF EXISTS "purchases_own" ON public.purchases;
 CREATE POLICY "purchases_own"   ON public.purchases       FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "tokens_own"    ON public.download_tokens;
 CREATE POLICY "tokens_own"      ON public.download_tokens FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "downloads_own" ON public.downloads;
 CREATE POLICY "downloads_own"   ON public.downloads       FOR SELECT USING (auth.uid() = user_id);
 
 -- Deliberately NO client-writable INSERT/UPDATE policy on purchases.
@@ -217,8 +236,30 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 9. VIEWS
 -- ─────────────────────────────────────
 
+-- CREATE OR REPLACE VIEW cannot rename/reorder/insert-before existing
+-- columns — Postgres only allows appending new columns at the END of an
+-- existing view's column list (42P16 "cannot change name of view column").
+-- An earlier revision of this file added p.book_language in the MIDDLE of
+-- user_library's SELECT list (before product_id/product_name/...), which on
+-- a database that already had the pre-bilingual version of this view shifts
+-- every column after it by one position — exactly what CREATE OR REPLACE
+-- VIEW refuses to do. DROP + CREATE has no such restriction and is what
+-- every view below now uses; it's just as idempotent (DROP VIEW IF EXISTS
+-- is a no-op when the view doesn't exist yet, e.g. a fresh database) and
+-- additionally correct for a column-list/order change, not just a body
+-- change. CASCADE is required here specifically because user_purchases
+-- depends on user_library (SELECT * FROM it) — dropping user_library alone
+-- without CASCADE would fail with "cannot drop ... because other objects
+-- depend on it". Both views are recreated immediately after, so nothing is
+-- left missing. If any OTHER database object outside this file has come to
+-- depend on user_library/user_purchases, CASCADE will drop that too; it is
+-- not recreated automatically and would need to be added back manually —
+-- but nothing in this codebase creates such a dependency.
+DROP VIEW IF EXISTS public.user_purchases CASCADE;
+DROP VIEW IF EXISTS public.user_library CASCADE;
+
 -- User library (authenticated users)
-CREATE OR REPLACE VIEW public.user_library AS
+CREATE VIEW public.user_library AS
 SELECT
   p.id,
   p.invoice_number,
@@ -242,7 +283,7 @@ WHERE  p.user_id = auth.uid()
   AND  p.status  = 'completed';
 
 -- Legacy view (backward compat)
-CREATE OR REPLACE VIEW public.user_purchases AS
+CREATE VIEW public.user_purchases AS
 SELECT * FROM public.user_library;
 
 -- ─────────────────────────────────────
@@ -253,8 +294,11 @@ RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS profiles_updated_at  ON public.profiles;
 CREATE TRIGGER profiles_updated_at  BEFORE UPDATE ON public.profiles  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+DROP TRIGGER IF EXISTS purchases_updated_at ON public.purchases;
 CREATE TRIGGER purchases_updated_at BEFORE UPDATE ON public.purchases FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+DROP TRIGGER IF EXISTS products_updated_at  ON public.products;
 CREATE TRIGGER products_updated_at  BEFORE UPDATE ON public.products  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
@@ -281,6 +325,7 @@ CREATE TABLE IF NOT EXISTS public.store_settings (
 
 -- Only admins can edit (use service role key in admin panel)
 ALTER TABLE public.store_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "settings_public_read" ON public.store_settings;
 CREATE POLICY "settings_public_read" ON public.store_settings FOR SELECT USING (TRUE);
 
 -- Insert default settings
@@ -303,6 +348,7 @@ CREATE TABLE IF NOT EXISTS public.discount_codes (
 
 ALTER TABLE public.discount_codes ENABLE ROW LEVEL SECURITY;
 -- Codes are verified server-side only (no direct client access to all codes)
+DROP POLICY IF EXISTS "codes_admin_only" ON public.discount_codes;
 CREATE POLICY "codes_admin_only" ON public.discount_codes FOR ALL USING (FALSE);
 
 -- Function: validate and apply discount code
@@ -421,6 +467,7 @@ CREATE TABLE IF NOT EXISTS public.testimonials (
   updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE public.testimonials ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "testimonials_read" ON public.testimonials;
 CREATE POLICY "testimonials_read" ON public.testimonials FOR SELECT USING (is_active = TRUE);
 
 INSERT INTO public.testimonials (name, location, rating, review_text, sort_order) VALUES
@@ -440,6 +487,7 @@ CREATE TABLE IF NOT EXISTS public.faqs (
   updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE public.faqs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "faqs_read" ON public.faqs;
 CREATE POLICY "faqs_read" ON public.faqs FOR SELECT USING (is_active = TRUE);
 
 INSERT INTO public.faqs (question, answer, sort_order) VALUES
@@ -461,6 +509,7 @@ CREATE TABLE IF NOT EXISTS public.features (
   updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE public.features ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "features_read" ON public.features;
 CREATE POLICY "features_read" ON public.features FOR SELECT USING (is_active = TRUE);
 
 -- "تعليمات مصورة" (Illustrated Instructions) intentionally omitted — product doesn't include it
@@ -482,6 +531,7 @@ CREATE TABLE IF NOT EXISTS public.comparison_rows (
   updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE public.comparison_rows ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "comparison_rows_read" ON public.comparison_rows;
 CREATE POLICY "comparison_rows_read" ON public.comparison_rows FOR SELECT USING (is_active = TRUE);
 
 INSERT INTO public.comparison_rows (label, rwnk_has, others_has, sort_order) VALUES
@@ -501,6 +551,7 @@ CREATE TABLE IF NOT EXISTS public.pages (
   updated_at        TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE public.pages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "pages_read" ON public.pages;
 CREATE POLICY "pages_read" ON public.pages FOR SELECT USING (TRUE);
 
 INSERT INTO public.pages (slug, title, meta_description, content) VALUES
@@ -590,14 +641,16 @@ CREATE TRIGGER on_auth_user_updated
 -- run multiple times.
 -- ═══════════════════════════════════════════════════════════
 
--- 15.1 purchases.book_language — captured at checkout, persisted through
--- the entire payment lifecycle, read at download/email time to pick the
--- right file. Defaults new rows to 'ar'; existing rows are explicitly
--- backfilled to 'ar' below so no purchase is ever left without a value.
-ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS book_language TEXT DEFAULT 'ar';
-ALTER TABLE public.purchases DROP CONSTRAINT IF EXISTS purchases_book_language_check;
-ALTER TABLE public.purchases ADD CONSTRAINT purchases_book_language_check CHECK (book_language IN ('ar','en'));
-UPDATE public.purchases SET book_language = 'ar' WHERE book_language IS NULL;
+-- 15.1 purchases.book_language — MOVED to section 3 (right after the
+-- purchases table is created), not defined here. The user_library VIEW in
+-- section 9 references p.book_language, and CREATE VIEW resolves column
+-- references at creation time — on a fresh database, running this file
+-- top-to-bottom, the ALTER TABLE used to still be down here in section 15,
+-- AFTER section 9 already tried (and failed, 42703 "column does not exist")
+-- to build the view against it. Every column a later section depends on
+-- must be added at or before the earliest point it's referenced; see the
+-- 15.1 block now living directly under the CREATE TABLE public.purchases
+-- statement above for the actual ALTER TABLE / CONSTRAINT / backfill.
 
 -- 15.2 products — one row supports both language files. Existing single-file
 -- products keep working unmodified: file_path/version are untouched, and
