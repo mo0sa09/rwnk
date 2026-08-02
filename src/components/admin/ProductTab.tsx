@@ -147,14 +147,26 @@ export function ProductTab() {
   }
 
   async function toggleDiscount(id: string, current: boolean) {
-    await fetch(`/api/admin/discounts/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: !current }) })
+    try {
+      const res = await fetch(`/api/admin/discounts/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: !current }) })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(json?.error ?? 'حدث خطأ')
+    } catch (e: any) {
+      toast.push('error', e.message ?? 'تعذّر تحديث حالة الكود')
+    }
     load()
   }
 
   function removeDiscount(id: string) {
     confirm.ask('حذف هذا الكود نهائياً؟ لا يمكن التراجع عن هذا الإجراء.', async () => {
-      await fetch(`/api/admin/discounts/${id}`, { method: 'DELETE' })
-      toast.push('success', 'تم حذف الكود')
+      try {
+        const res = await fetch(`/api/admin/discounts/${id}`, { method: 'DELETE' })
+        const json = await res.json().catch(() => null)
+        if (!res.ok) throw new Error(json?.error ?? 'حدث خطأ')
+        toast.push('success', 'تم حذف الكود')
+      } catch (e: any) {
+        toast.push('error', e.message ?? 'تعذّر حذف الكود')
+      }
       load()
     })
   }

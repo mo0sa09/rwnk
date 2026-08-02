@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseServerEnv } from '@/lib/env'
-import { insertWithSchemaFallback } from '@/lib/db-resilience'
+import { insertWithSchemaFallback, getSingletonRow } from '@/lib/db-resilience'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,8 +33,19 @@ export async function POST(request: NextRequest) {
   const { createClient } = await import('@supabase/supabase-js')
   const sb = createClient(url, key) as any
 
-  const { data: settings, error: settingsErr } = await sb.from('store_settings').select('product_id,product_price,product_currency').single()
-  if (settingsErr || !settings) return NextResponse.json({ error: 'تعذّر تحميل بيانات المنتج' }, { status: 500 })
+  // store_settings must hold exactly one row, but nothing at the DB level
+  // enforces that — a live incident found a migration re-run's seed INSERT
+  // silently created a second row, which made this bare .single() 500 on
+  // EVERY checkout attempt (real customers could not purchase at all until
+  // the duplicate was found and removed). getSingletonRow tolerates an
+  // accidental duplicate instead of taking down checkout entirely.
+  const { data: settings, error: settingsErr } = await getSingletonRow<{ product_id: string; product_price: number; product_currency: string }>(
+    sb, 'store_settings', 'product_id,product_price,product_currency'
+  )
+  if (settingsErr || !settings) {
+    console.error(`[checkout] failed to load product/price from store_settings: ${settingsErr?.message ?? 'no row found'}`)
+    return NextResponse.json({ error: 'تعذّر تحميل بيانات المنتج' }, { status: 500 })
+  }
 
   const purchasePayload: Record<string, unknown> = {
     product_id:     settings.product_id,

@@ -178,3 +178,36 @@ export async function auditSchema(url: string, key: string, expected: ExpectedTa
     return { reachable: false, missingTables: [], missingColumns: {}, error: e instanceof Error ? e.message : 'Unknown error reaching Supabase' }
   }
 }
+
+export interface SingletonRowResult<T> {
+  data: T | null
+  error: { message: string } | null
+  rowCount: number
+}
+
+// store_settings and products are both meant to hold exactly one row — but
+// nothing at the database level actually guarantees that (no UNIQUE
+// constraint enforces it), and a live incident proved the gap is real: a
+// migration re-run's `INSERT ... ON CONFLICT DO NOTHING` had no genuine
+// conflict target (id is a fresh random UUID every time), so it silently
+// inserted a SECOND store_settings row instead of skipping. Every
+// `.select('*').single()` against that table then started throwing
+// PostgREST's "Cannot coerce the result to a single JSON object" —
+// breaking every admin save AND the public site's getStoreSettings(),
+// which swallowed the error and silently fell back to hardcoded defaults.
+// This helper is what "verify it actually returns exactly one row" means
+// in code: never trust the table to have exactly one row, always order
+// deterministically and take the first, and — critically — LOG loudly when
+// more than one row exists so a stray duplicate is caught immediately
+// instead of being silently tolerated forever. It replaces every bare
+// `.select(...).single()` call against these two tables.
+export async function getSingletonRow<T = any>(sb: any, table: string, columns = '*'): Promise<SingletonRowResult<T>> {
+  const { data, error } = await sb.from(table).select(columns).order('updated_at', { ascending: false }).limit(2)
+  if (error) return { data: null, error: { message: error.message }, rowCount: 0 }
+  const rows = (data ?? []) as T[]
+  if (rows.length === 0) return { data: null, error: { message: `'${table}' has no rows — expected exactly one.` }, rowCount: 0 }
+  if (rows.length > 1) {
+    console.error(`[db-resilience] '${table}' has more than one row — using the most recently updated one. This should never happen; a duplicate needs to be deleted manually.`)
+  }
+  return { data: rows[0], error: null, rowCount: rows.length }
+}

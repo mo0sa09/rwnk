@@ -328,8 +328,23 @@ ALTER TABLE public.store_settings ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "settings_public_read" ON public.store_settings;
 CREATE POLICY "settings_public_read" ON public.store_settings FOR SELECT USING (TRUE);
 
--- Insert default settings
-INSERT INTO public.store_settings DEFAULT VALUES ON CONFLICT DO NOTHING;
+-- Insert default settings — exactly once, ever. `id` is a fresh random UUID
+-- on every INSERT and nothing else on this table is UNIQUE, so `ON CONFLICT
+-- DO NOTHING` (the previous version of this statement) had no actual
+-- conflict target to match against — it silently inserted a brand new row
+-- on every single re-run of this file instead of skipping. This is exactly
+-- what happened in production: a second store_settings row appeared after
+-- a routine re-run, which made every `.single()` read/write against this
+-- table start failing with PostgREST's "Cannot coerce the result to a
+-- single JSON object" — breaking checkout, every admin save, and the
+-- public site's getStoreSettings() (which silently fell back to hardcoded
+-- defaults, site-wide, with no visible error). WHERE NOT EXISTS is the
+-- correct guard: only inserts if the table is currently completely empty,
+-- true on every subsequent run once one row exists, regardless of how many
+-- times this file is executed.
+INSERT INTO public.store_settings (id)
+SELECT uuid_generate_v4()
+WHERE NOT EXISTS (SELECT 1 FROM public.store_settings);
 
 -- ─────────────────────────────────────
 -- 12. DISCOUNT CODES
@@ -470,11 +485,18 @@ ALTER TABLE public.testimonials ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "testimonials_read" ON public.testimonials;
 CREATE POLICY "testimonials_read" ON public.testimonials FOR SELECT USING (is_active = TRUE);
 
-INSERT INTO public.testimonials (name, location, rating, review_text, sort_order) VALUES
+-- WHERE NOT EXISTS, not ON CONFLICT DO NOTHING: id is a fresh random UUID
+-- per row and nothing else here is UNIQUE, so there is no real conflict
+-- target for ON CONFLICT to match — see the store_settings seed INSERT
+-- above for the production incident this exact pattern caused. This only
+-- seeds when the table is completely empty, safe on any number of re-runs.
+INSERT INTO public.testimonials (name, location, rating, review_text, sort_order)
+SELECT * FROM (VALUES
   ('أم ماجد',      'الكويت',  5, 'اشتريت الكتاب وأعطيته للعاملة. الأسبوع الأول كان فرقاً واضحاً.',            1),
   ('نورة العنزي',  'الرياض',  5, 'استخدمناه في تدريب موظفاتنا. وفّر وقت التدريب ورفع مستوى الخدمة.',          2),
   ('سارة الدوسري', 'البحرين', 4, 'القوائم الجاهزة للطباعة هي الأفضل — علّقتها في المطبخ والحمام.',            3)
-ON CONFLICT DO NOTHING;
+) AS seed(name, location, rating, review_text, sort_order)
+WHERE NOT EXISTS (SELECT 1 FROM public.testimonials);
 
 -- 13.3 faqs
 CREATE TABLE IF NOT EXISTS public.faqs (
@@ -490,12 +512,15 @@ ALTER TABLE public.faqs ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "faqs_read" ON public.faqs;
 CREATE POLICY "faqs_read" ON public.faqs FOR SELECT USING (is_active = TRUE);
 
-INSERT INTO public.faqs (question, answer, sort_order) VALUES
+-- WHERE NOT EXISTS — same reasoning as testimonials above.
+INSERT INTO public.faqs (question, answer, sort_order)
+SELECT * FROM (VALUES
   ('كيف أستلم الكتاب بعد الشراء؟',    'تحميل فوري — بعد الدفع تصلك رسالة برابط التحميل المباشر.',            1),
   ('هل يمكنني طباعة الكتاب؟',         'نعم، مصمم للطباعة. القوائم والجداول بتنسيق A4 جاهز.',                  2),
   ('هل يناسب كل أنواع المنازل؟',      'نعم، ليناسب الشقق والفلل بمختلف أحجامها في منطقة الخليج.',             3),
   ('هل هناك تحديثات مستقبلية؟',       'نعم، جميع التحديثات مجانية لمن اشترى النسخة الأولى.',                  4)
-ON CONFLICT DO NOTHING;
+) AS seed(question, answer, sort_order)
+WHERE NOT EXISTS (SELECT 1 FROM public.faqs);
 
 -- 13.4 features (solution / benefits grid)
 CREATE TABLE IF NOT EXISTS public.features (
@@ -513,11 +538,14 @@ DROP POLICY IF EXISTS "features_read" ON public.features;
 CREATE POLICY "features_read" ON public.features FOR SELECT USING (is_active = TRUE);
 
 -- "تعليمات مصورة" (Illustrated Instructions) intentionally omitted — product doesn't include it
-INSERT INTO public.features (icon, title, description, sort_order) VALUES
+-- WHERE NOT EXISTS — same reasoning as testimonials above.
+INSERT INTO public.features (icon, title, description, sort_order)
+SELECT * FROM (VALUES
   ('IconStarFilled', 'معايير 5 نجوم',      'أسس التنظيف المستوحاة من الفنادق الراقية مُطبَّقة على بيئة المنزل', 1),
   ('IconCheck',      'قوائم تفتيش جاهزة',  'لكل غرفة قائمة منفصلة — لا شيء يُنسى، لا شيء يُهمل',                2),
   ('IconCalendar',   'جداول منظمة',        'يومية · أسبوعية · شهرية — جاهزة للطباعة والتطبيق فوراً',            3)
-ON CONFLICT DO NOTHING;
+) AS seed(icon, title, description, sort_order)
+WHERE NOT EXISTS (SELECT 1 FROM public.features);
 
 -- 13.5 comparison_rows
 CREATE TABLE IF NOT EXISTS public.comparison_rows (
@@ -534,13 +562,16 @@ ALTER TABLE public.comparison_rows ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "comparison_rows_read" ON public.comparison_rows;
 CREATE POLICY "comparison_rows_read" ON public.comparison_rows FOR SELECT USING (is_active = TRUE);
 
-INSERT INTO public.comparison_rows (label, rwnk_has, others_has, sort_order) VALUES
+-- WHERE NOT EXISTS — same reasoning as testimonials above.
+INSERT INTO public.comparison_rows (label, rwnk_has, others_has, sort_order)
+SELECT * FROM (VALUES
   ('باللغة العربية',           TRUE, FALSE, 1),
   ('مستوى الفنادق',            TRUE, FALSE, 2),
   ('قوائم جاهزة للطباعة',      TRUE, FALSE, 3),
   ('تحديثات مجانية',           TRUE, FALSE, 4),
   ('دفعة واحدة',               TRUE, FALSE, 5)
-ON CONFLICT DO NOTHING;
+) AS seed(label, rwnk_has, others_has, sort_order)
+WHERE NOT EXISTS (SELECT 1 FROM public.comparison_rows);
 
 -- 13.6 pages — About / Terms / Privacy / Refund
 CREATE TABLE IF NOT EXISTS public.pages (

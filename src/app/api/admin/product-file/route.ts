@@ -1,17 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { getAdminDb } from '@/lib/admin-db'
-import { updateWithSchemaFallback } from '@/lib/db-resilience'
+import { updateWithSchemaFallback, getSingletonRow } from '@/lib/db-resilience'
 
 // Reads the single product row (there's only ever one — this is a
 // single-product store) so the admin UI can show the current file/version.
+// products' seed INSERT targets an explicit fixed id, so it's not exposed
+// to the same "ON CONFLICT DO NOTHING with no real conflict target"
+// duplication bug store_settings hit — but nothing at the DB level actually
+// prevents a second row from ever existing here either, so this uses the
+// same resilient singleton read as a defensive measure, not because a
+// duplicate has been observed.
 export async function GET(request: NextRequest) {
   const { error: authErr } = await requireAdmin(request)
   if (authErr) return authErr
 
   const sb = getAdminDb()
-  const { data, error } = await sb.from('products').select('*').single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  const { data, error } = await getSingletonRow(sb, 'products')
+  if (error) {
+    console.error(`[admin/product-file GET] ${error.message}`)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
   return NextResponse.json({ data })
 }
 
@@ -36,8 +45,11 @@ export async function PATCH(request: NextRequest) {
   if (Object.keys(payload).length === 0) return NextResponse.json({ error: 'لا يوجد تغيير' }, { status: 400 })
 
   const sb = getAdminDb()
-  const { data: existing, error: findErr } = await sb.from('products').select('id').single()
-  if (findErr || !existing) return NextResponse.json({ error: findErr?.message ?? 'المنتج غير موجود' }, { status: 500 })
+  const { data: existing, error: findErr } = await getSingletonRow<{ id: string }>(sb, 'products', 'id')
+  if (findErr || !existing) {
+    console.error(`[admin/product-file PATCH] could not resolve the product row to update: ${findErr?.message ?? 'no row found'}`)
+    return NextResponse.json({ error: findErr?.message ?? 'المنتج غير موجود' }, { status: 500 })
+  }
 
   // The bilingual columns (file_path_ar/version_ar/file_path_en/version_en)
   // may not exist yet on a database that hasn't had supabase/schema.sql §15
@@ -59,5 +71,6 @@ export async function PATCH(request: NextRequest) {
   if (droppedFields.length > 0) {
     console.warn(`[admin/product-file] saved, but these fields don't exist on the live database yet and were skipped: ${droppedFields.join(', ')} — run the pending migration (supabase/schema.sql §15) to enable bilingual file storage.`)
   }
+  console.log(`[admin/product-file] update succeeded — id=${existing.id} fields=${Object.keys(payload).join(',')}`)
   return NextResponse.json({ data, droppedFields })
 }

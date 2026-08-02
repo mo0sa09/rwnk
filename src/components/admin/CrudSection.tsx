@@ -96,21 +96,40 @@ export function CrudSection({ resource, title, description, fields, emptyItem, r
 
   async function remove(id: string) {
     if (!confirm('حذف هذا العنصر؟')) return
-    await fetch(`/api/admin/${resource}/${id}`, { method: 'DELETE' })
+    try {
+      const res = await fetch(`/api/admin/${resource}/${id}`, { method: 'DELETE' })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(json?.error ?? 'حدث خطأ أثناء الحذف')
+      setMsg('✓ تم الحذف بنجاح')
+    } catch (e: any) {
+      setMsg(`✗ ${e.message}`)
+    }
+    setTimeout(() => setMsg(''), 3000)
     await load()
   }
 
   async function move(index: number, dir: -1 | 1) {
     const target = index + dir
     if (target < 0 || target >= items.length) return
+    const previous = items
     const next = [...items]
     ;[next[index], next[target]] = [next[target], next[index]]
     setItems(next)
-    await fetch(`/api/admin/${resource}/reorder`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderedIds: next.map(i => i.id) }),
-    })
+    try {
+      const res = await fetch(`/api/admin/${resource}/reorder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderedIds: next.map(i => i.id) }),
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(json?.error ?? 'حدث خطأ أثناء إعادة الترتيب')
+    } catch (e: any) {
+      // The reorder didn't actually persist — revert the optimistic UI
+      // update instead of showing an order the database doesn't have.
+      setItems(previous)
+      setMsg(`✗ ${e.message}`)
+      setTimeout(() => setMsg(''), 3000)
+    }
   }
 
   return (

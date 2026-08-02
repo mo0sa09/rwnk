@@ -3,6 +3,7 @@ import { getSupabaseServerEnv } from '@/lib/env'
 import { deriveMyFatoorahVerdict, decideFinalize, resultStatusToDestination, extractMyFatoorahWebhookPurchaseId, type GatewayStatus } from '@/lib/payment-verify'
 import { ensureUserLinked, mintDownloadToken } from '@/lib/payment-access'
 import { sendPurchaseConfirmationEmail, sendAdminOrderNotification } from '@/lib/email'
+import { getSingletonRow } from '@/lib/db-resilience'
 
 export const dynamic = 'force-dynamic'
 
@@ -145,12 +146,20 @@ async function notifyPurchaseCompleted(sb: any, purchase: CompletedPurchaseInfo,
   await mintDownloadToken(sb, purchase.id, userId)
 
   try {
-    const [{ data: product }, { data: settings }] = await Promise.all([
+    // store_settings must hold exactly one row, but nothing at the DB level
+    // enforces that (see getSingletonRow's own comment for the live
+    // incident that proved this gap real) — a bare .single() here would
+    // silently resolve to settings=null on a duplicate, degrading every
+    // confirmation/admin-notification email to generic fallback text with
+    // no error logged anywhere. getSingletonRow tolerates the duplicate AND
+    // logs it.
+    const [{ data: product }, { data: settings, error: settingsErr }] = await Promise.all([
       purchase.product_id
         ? sb.from('products').select('name').eq('id', purchase.product_id).single()
         : Promise.resolve({ data: null }),
-      sb.from('store_settings').select('store_name,email').single(),
+      getSingletonRow<{ store_name: string; email: string }>(sb, 'store_settings', 'store_name,email'),
     ])
+    if (settingsErr) console.error(`[payment/callback] purchase ${purchase.id} — could not load store_settings for email copy: ${settingsErr.message} (using fallback store name/email)`)
 
     const language = purchase.book_language === 'en' ? 'en' : 'ar'
     const result = await sendPurchaseConfirmationEmail({

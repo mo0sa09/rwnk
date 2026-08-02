@@ -99,13 +99,25 @@ export const DEFAULT_SETTINGS: StoreSettings = {
 export async function getStoreSettings(): Promise<StoreSettings> {
   try {
     const { createClient } = await import('@supabase/supabase-js')
+    const { getSingletonRow } = await import('./db-resilience')
     const sb = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
     ) as any
-    const { data } = await sb.from('store_settings').select('*').single()
+    // store_settings must always have exactly one row, but a live incident
+    // (a migration re-run's seed INSERT silently creating a second row)
+    // proved a bare .single() here is a single point of failure for the
+    // ENTIRE public site: it threw on every request, was swallowed by the
+    // catch below, and every page silently rendered hardcoded defaults
+    // instead of the real database content — with no error visible
+    // anywhere. getSingletonRow tolerates that instead of crashing, and
+    // logs loudly so a duplicate is caught immediately, not indefinitely.
+    const { data, error } = await getSingletonRow<Partial<StoreSettings>>(sb, 'store_settings')
+    if (error) console.error(`[getStoreSettings] ${error.message} — falling back to DEFAULT_SETTINGS.`)
     if (data) return { ...DEFAULT_SETTINGS, ...data }
-  } catch {}
+  } catch (e) {
+    console.error(`[getStoreSettings] unexpected error — falling back to DEFAULT_SETTINGS: ${e instanceof Error ? e.message : e}`)
+  }
   return DEFAULT_SETTINGS
 }
 
