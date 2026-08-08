@@ -11,6 +11,7 @@ import {
   IconCircleCheck, IconDownload, IconArrowRight,
   IconFileText, IconLock, IconUser, IconAlertTriangle, IconBrandWhatsapp,
 } from '@tabler/icons-react'
+import { trackPurchase, trackDownloadBook, hasTrackedPurchase, markPurchaseTracked } from '@/lib/gtag'
 
 interface PurchaseInfo {
   id: string
@@ -23,6 +24,7 @@ interface PurchaseInfo {
   downloads_used: number
   created_at: string
   book_language: 'ar' | 'en' | null
+  product_id: string | null
 }
 
 const LANGUAGE_LABEL: Record<string, string> = { ar: '🇸🇦 العربية', en: '🇺🇸 English' }
@@ -33,6 +35,7 @@ export default function SuccessPage() {
   const [step, setStep]        = useState<Step>('loading')
   const [info, setInfo]        = useState<PurchaseInfo | null>(null)
   const [settings, setSettings] = useState<StoreSettings>(DEFAULT_SETTINGS)
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [pwd, setPwd]          = useState('')
   const [pwd2, setPwd2]        = useState('')
   const [pwLoading, setPwLoad] = useState(false)
@@ -46,7 +49,7 @@ export default function SuccessPage() {
   const inpS: React.CSSProperties = { width:'100%', height:44, background:'#FAFAFA', border:`1px solid ${C.border}`, borderRadius:11, padding:'0 14px', fontSize:13, color:C.text1, outline:'none', fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif", direction:'ltr', transition:'all .2s' }
 
   useEffect(() => {
-    getStoreSettings().then(setSettings)
+    getStoreSettings().then(s => { setSettings(s); setSettingsLoaded(true) })
     async function load() {
       const purchaseId = new URLSearchParams(window.location.search).get('purchaseId')
       if (!purchaseId) { setStep('not_found'); return }
@@ -93,8 +96,32 @@ export default function SuccessPage() {
     return () => { cancelled = true; clearInterval(interval) }
   }, [step, info?.id])
 
+  // GA4 purchase event — fires exactly once per purchase, and only once
+  // `info.status` genuinely reads 'completed' from /api/purchase-status,
+  // which itself only ever reflects the DB row flipped by the verified
+  // MyFatoorah callback (see /api/payment/callback's compare-and-swap
+  // update). Landing on this page is not sufficient on its own — a
+  // 'pending' purchase renders this same page without ever reaching this
+  // branch. The localStorage guard (keyed by purchase id) is what prevents
+  // a duplicate event on refresh/reload or re-opening the confirmation
+  // email's success link later.
+  useEffect(() => {
+    if (step !== 'success' || !info || info.status !== 'completed' || !settingsLoaded) return
+    if (hasTrackedPurchase(info.id)) return
+    trackPurchase({
+      transaction_id: info.invoice_number ?? info.id,
+      value: info.amount,
+      currency: info.currency,
+      item_id: info.product_id ?? settings.product_id,
+      item_name: settings.product_name,
+      book_language: info.book_language ?? 'ar',
+    })
+    markPurchaseTracked(info.id)
+  }, [step, info, settingsLoaded, settings])
+
   async function handleDownload() {
     if (!info?.id) return
+    trackDownloadBook(info.book_language ?? 'ar', info.invoice_number)
     setDlLoad(true); setDlError('')
     try {
       const res = await fetch('/api/download/token', {

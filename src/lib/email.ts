@@ -25,6 +25,18 @@ export interface PurchaseEmailParams {
   purchaseDate: string // ISO string
   successUrl: string
   supportEmail: string
+  websiteUrl: string
+  // Both are permanent public Storage URLs (admin-uploaded via
+  // /api/admin/upload, served through getPublicUrl — NOT the short-lived
+  // signed URLs /api/download issues for the actual PDF). Safe to embed
+  // directly; null when the admin hasn't set one, in which case the
+  // template falls back to a text/gradient placeholder rather than a
+  // hardcoded image.
+  logoUrl?: string | null
+  bookCoverUrl?: string | null
+  // Guest checkout leaves this blank (the name field on /checkout is
+  // optional) — the greeting line is only rendered when present.
+  customerName?: string | null
 }
 
 export interface SendEmailResult {
@@ -53,6 +65,7 @@ const COPY: Record<EmailLanguage, {
   dir: 'rtl' | 'ltr'
   subject: (invoiceNumber: string) => string
   heading: string
+  greeting: (customerName: string) => string
   intro: (productName: string) => string
   labelOrderNumber: string
   labelBookName: string
@@ -63,12 +76,14 @@ const COPY: Record<EmailLanguage, {
   downloadButton: string
   linkFallback: string
   supportIntro: string
+  websiteLabel: string
   footerNote: string
 }> = {
   ar: {
     dir: 'rtl',
     subject: () => 'تم استلام طلبك بنجاح ✨',
     heading: 'تم الدفع بنجاح!',
+    greeting: customerName => `مرحباً ${customerName}،`,
     intro: productName => `شكراً لشرائك — ${productName} الآن ملكك ويمكنك تحميله فوراً.`,
     labelOrderNumber: 'رقم الطلب',
     labelBookName: 'اسم الكتاب',
@@ -79,12 +94,14 @@ const COPY: Record<EmailLanguage, {
     downloadButton: 'تحميل الكتاب الآن',
     linkFallback: 'إذا لم يعمل الزر، انسخي هذا الرابط:',
     supportIntro: 'تحتاجين مساعدة؟ تواصلي معنا على',
+    websiteLabel: 'زيارة موقع رَوْنَق',
     footerNote: 'هذه رسالة إيصال آلية',
   },
   en: {
     dir: 'ltr',
     subject: () => 'Your RWNK Guide is Ready ✨',
     heading: 'Payment Successful!',
+    greeting: customerName => `Hi ${customerName},`,
     intro: productName => `Thank you for your purchase — ${productName} is now yours and ready to download.`,
     labelOrderNumber: 'Order Number',
     labelBookName: 'Book',
@@ -95,6 +112,7 @@ const COPY: Record<EmailLanguage, {
     downloadButton: 'Download Your Book Now',
     linkFallback: "If the button doesn't work, copy this link:",
     supportIntro: 'Need help? Contact us at',
+    websiteLabel: 'Visit the RWNK website',
     footerNote: 'This is an automated receipt',
   },
 }
@@ -129,15 +147,24 @@ function buildEmailHtml(p: PurchaseEmailParams): string {
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#FFFFFF;border-radius:20px;overflow:hidden;border:1px solid #EDE8F5;">
 
         <tr><td style="background:#6747B2;padding:28px 24px;text-align:center;">
-          <div style="font-size:20px;font-weight:900;color:#FFFFFF;">${p.storeName}</div>
-        </tr></td>
+          ${p.logoUrl
+            ? `<img src="${p.logoUrl}" alt="${p.storeName}" style="max-width:160px;max-height:48px;width:auto;height:auto;display:inline-block;border:0;" />`
+            : `<div style="font-size:20px;font-weight:900;color:#FFFFFF;">${p.storeName}</div>`}
+        </td></tr>
 
         <tr><td style="padding:32px 28px 8px;text-align:center;">
           <div style="width:56px;height:56px;border-radius:50%;background:#E1F5EE;margin:0 auto 16px;line-height:56px;font-size:26px;">✅</div>
           <div style="font-size:20px;font-weight:900;color:#1A1228;margin-bottom:8px;">${C.heading}</div>
-          <div style="font-size:14px;color:#4A4060;line-height:1.7;margin-bottom:24px;">
+          ${p.customerName ? `<div style="font-size:14px;font-weight:700;color:#1A1228;margin-bottom:6px;">${C.greeting(p.customerName)}</div>` : ''}
+          <div style="font-size:14px;color:#4A4060;line-height:1.7;margin-bottom:20px;">
             ${C.intro(p.productName)}
           </div>
+        </td></tr>
+
+        <tr><td style="padding:0 28px 20px;text-align:center;">
+          ${p.bookCoverUrl
+            ? `<img src="${p.bookCoverUrl}" alt="${p.productName}" width="96" style="width:96px;height:auto;border-radius:12px;box-shadow:0 8px 24px rgba(103,71,178,.25);display:inline-block;border:0;" />`
+            : `<div style="width:96px;height:126px;border-radius:12px;display:inline-block;background:linear-gradient(145deg,#6747B2,#8b6dd4);"></div>`}
         </td></tr>
 
         <tr><td style="padding:0 28px;">
@@ -167,6 +194,8 @@ function buildEmailHtml(p: PurchaseEmailParams): string {
           <div style="font-size:12px;color:#9890AA;text-align:center;line-height:1.8;">
             ${C.supportIntro}<br>
             <a href="mailto:${p.supportEmail}" style="color:#6747B2;font-weight:700;text-decoration:none;">${p.supportEmail}</a>
+            <br><br>
+            <a href="${p.websiteUrl}" style="color:#6747B2;font-weight:700;text-decoration:none;">${C.websiteLabel}</a>
           </div>
         </td></tr>
 

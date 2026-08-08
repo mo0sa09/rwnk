@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { CardBrandsIcon, KnetIcon, ApplePayIcon } from '@/components/ui/PaymentIcons'
 import { getStoreSettings, DEFAULT_SETTINGS, type StoreSettings } from '@/lib/store-settings'
 import { isValidEmail } from '@/lib/auth'
+import { trackViewItem, trackSelectLanguage, trackBeginCheckout, trackAddPaymentInfo } from '@/lib/gtag'
 
 const P='#6747B2',PL='#EDE8FF',T1='#1A1228',T2='#4A4060',T3='#9890AA',BR='#EDE8F5'
 const PM=[
@@ -36,7 +37,10 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     function init() {
-      getStoreSettings().then(setSettings)
+      getStoreSettings().then(s => {
+        setSettings(s)
+        trackViewItem({ item_id: s.product_id, item_name: s.product_name, price: s.product_price }, s.product_currency)
+      })
       const params = new URLSearchParams(window.location.search)
       const err = params.get('error')
       if (err) setBanner(ERROR_MESSAGES[err] ?? 'تعذّر إتمام عملية الدفع. حاولي مرة أخرى.')
@@ -55,6 +59,10 @@ export default function CheckoutPage() {
 
     submitting.current = true
     setLoading(true); setError(''); setBanner('')
+
+    const item = { item_id: settings.product_id, item_name: settings.product_name, price: settings.product_price, book_language: bookLanguage }
+    trackBeginCheckout(item, settings.product_currency)
+
     try {
       const checkoutRes = await fetch('/api/checkout', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -70,6 +78,7 @@ export default function CheckoutPage() {
       const payJson = await payRes.json()
       if (!payRes.ok || !payJson.paymentUrl) throw new Error(payJson.error ?? 'تعذّر بدء عملية الدفع')
 
+      trackAddPaymentInfo(item, settings.product_currency, pm)
       window.location.href = payJson.paymentUrl
     } catch (err: any) {
       setError(err.message ?? 'حدث خطأ غير متوقع، حاولي مرة أخرى')
@@ -104,7 +113,7 @@ export default function CheckoutPage() {
           <div style={{fontSize:11,fontWeight:900,color:P,textTransform:'uppercase',marginBottom:14}}>لغة الكتاب</div>
           <div className="checkout-lang-grid" role="radiogroup" aria-label="لغة الكتاب" style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8}}>
             {LANGS.map(l=>(
-              <button key={l.id} type="button" role="radio" aria-checked={bookLanguage===l.id} onClick={()=>setBookLanguage(l.id)}
+              <button key={l.id} type="button" role="radio" aria-checked={bookLanguage===l.id} onClick={()=>{setBookLanguage(l.id); trackSelectLanguage(l.id)}}
                 style={{minHeight:52,display:'flex',alignItems:'center',justifyContent:'center',gap:8,border:`1.5px solid ${bookLanguage===l.id?P:BR}`,background:bookLanguage===l.id?PL:'#fff',borderRadius:10,cursor:'pointer',fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif",transition:'all .15s'}}>
                 <span style={{fontSize:18}}>{l.flag}</span>
                 <span style={{fontSize:13,fontWeight:700,color:bookLanguage===l.id?P:T2}}>{l.label}</span>

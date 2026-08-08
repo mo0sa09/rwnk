@@ -24,8 +24,10 @@ export async function GET(request: NextRequest) {
   // client-safe allowlist, but tolerate book_language not existing yet
   // (migration not applied) rather than 42703'ing the whole query — this
   // endpoint is what the Success page depends on for EVERY purchase, not
-  // just bilingual ones.
-  const SAFE_COLUMNS = 'id,invoice_number,email,amount,currency,status,downloads_limit,downloads_used,account_created,created_at'
+  // just bilingual ones. product_id is included too — it's just a UUID (not
+  // sensitive like the fields above) and the Success page needs it for the
+  // GA4 purchase event's item_id.
+  const SAFE_COLUMNS = 'id,invoice_number,email,amount,currency,status,downloads_limit,downloads_used,account_created,created_at,product_id'
   let { data: purchase, error } = await sb.from('purchases').select(`${SAFE_COLUMNS},book_language`).eq('id', purchaseId).single()
   if (error?.code === '42703') {
     console.error('[purchase-status] purchases.book_language column not found — the migration in supabase/schema.sql §15 has not been run. Retrying without it. RUN THE MIGRATION.')

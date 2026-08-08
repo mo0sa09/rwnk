@@ -157,7 +157,9 @@ async function notifyPurchaseCompleted(sb: any, purchase: CompletedPurchaseInfo,
       purchase.product_id
         ? sb.from('products').select('name').eq('id', purchase.product_id).single()
         : Promise.resolve({ data: null }),
-      getSingletonRow<{ store_name: string; email: string }>(sb, 'store_settings', 'store_name,email'),
+      getSingletonRow<{ store_name: string; email: string; logo_url: string | null; product_image_url: string | null }>(
+        sb, 'store_settings', 'store_name,email,logo_url,product_image_url'
+      ),
     ])
     if (settingsErr) console.error(`[payment/callback] purchase ${purchase.id} — could not load store_settings for email copy: ${settingsErr.message} (using fallback store name/email)`)
 
@@ -173,6 +175,10 @@ async function notifyPurchaseCompleted(sb: any, purchase: CompletedPurchaseInfo,
       purchaseDate: purchase.created_at,
       successUrl: `${appUrl}/success?purchaseId=${purchase.id}`,
       supportEmail: settings?.email ?? 'hello@rwnk.co',
+      websiteUrl: appUrl,
+      logoUrl: settings?.logo_url ?? null,
+      bookCoverUrl: settings?.product_image_url ?? null,
+      customerName: purchase.customer_name ?? null,
     })
     if (!result.ok) {
       console.warn(`[payment/callback] purchase ${purchase.id} — confirmation email not sent (${result.reason}); customer can still reach /success directly`)
