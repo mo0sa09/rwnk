@@ -44,6 +44,26 @@ export interface SendEmailResult {
   reason?: 'not_configured' | 'send_failed'
 }
 
+// Escapes the handful of fields that originate from customer-supplied
+// checkout input (name, email) before they're interpolated into email HTML.
+// checkout's EMAIL_RE (/^[^\s@]+@[^\s@]+\.[^\s@]+$/) permits characters like
+// `<`/`>`/`"` in the local part, and the name field has no character
+// restriction at all — so an unescaped value here is a real HTML-injection
+// vector into whichever inbox renders it (the customer's own confirmation
+// email, or the store owner's admin notification). Everything else
+// interpolated into these templates (store name, product name, support
+// email, logo/cover URLs) comes from admin-controlled store_settings, a
+// trust boundary this project already treats as authoritative elsewhere
+// (e.g. admin-set marketing copy is rendered as-is on the public site too).
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 function formatAmount(amount: number, currency: string, language: EmailLanguage): string {
   const symbol = currency === 'KWD' ? (language === 'ar' ? 'د.ك' : 'KWD') : currency
   return `${amount.toFixed(3)} ${symbol}`
@@ -155,7 +175,7 @@ function buildEmailHtml(p: PurchaseEmailParams): string {
         <tr><td style="padding:32px 28px 8px;text-align:center;">
           <div style="width:56px;height:56px;border-radius:50%;background:#E1F5EE;margin:0 auto 16px;line-height:56px;font-size:26px;">✅</div>
           <div style="font-size:20px;font-weight:900;color:#1A1228;margin-bottom:8px;">${C.heading}</div>
-          ${p.customerName ? `<div style="font-size:14px;font-weight:700;color:#1A1228;margin-bottom:6px;">${C.greeting(p.customerName)}</div>` : ''}
+          ${p.customerName ? `<div style="font-size:14px;font-weight:700;color:#1A1228;margin-bottom:6px;">${C.greeting(escapeHtml(p.customerName))}</div>` : ''}
           <div style="font-size:14px;color:#4A4060;line-height:1.7;margin-bottom:20px;">
             ${C.intro(p.productName)}
           </div>
@@ -287,8 +307,8 @@ export async function sendAdminOrderNotification(p: AdminOrderNotificationParams
     <tr><td style="padding:20px 24px;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
         ${[
-          ['العميل', p.customerName || '—'],
-          ['البريد الإلكتروني', p.customerEmail],
+          ['العميل', p.customerName ? escapeHtml(p.customerName) : '—'],
+          ['البريد الإلكتروني', escapeHtml(p.customerEmail)],
           ['المبلغ', amount],
           ['اللغة المختارة', languageLabel],
           ['رقم الفاتورة', p.invoiceNumber],
@@ -323,4 +343,38 @@ export async function sendPurchaseConfirmationEmail(p: PurchaseEmailParams): Pro
 
   const subject = COPY[p.language].subject(p.invoiceNumber)
   return sendResendEmail(`purchase confirmation (language=${p.language}, invoice=${p.invoiceNumber})`, apiKey, from, p.to, subject, buildEmailHtml(p))
+}
+
+export interface TestEmailResult extends SendEmailResult {
+  configured: boolean
+}
+
+// Diagnostic-only send used by the admin-gated /api/admin/email-test route
+// (POST, manual trigger only — never called from build, page render, or app
+// startup). Deliberately reuses sendResendEmail rather than a separate
+// fetch call, so a real send exercises the exact same code path production
+// email goes through. Recipient is always the calling admin's own account
+// email (enforced by the route, not here) — this endpoint must never become
+// a "send to arbitrary address" primitive.
+export async function sendTestEmail(to: string): Promise<TestEmailResult> {
+  const apiKey = process.env.RESEND_API_KEY
+  const from = process.env.EMAIL_FROM
+
+  if (!apiKey || !from) {
+    return { ok: false, configured: false, reason: 'not_configured' }
+  }
+
+  const html = `<!doctype html><html><head><meta charset="utf-8"></head>
+<body style="font-family:Tahoma,Arial,sans-serif;padding:24px;background:#FAFAFA;">
+  <div style="max-width:420px;margin:0 auto;background:#fff;border:1px solid #EDE8F5;border-radius:12px;padding:24px;">
+    <div style="font-size:15px;font-weight:900;color:#1A1228;margin-bottom:8px;">✅ RWNK / Resend test email</div>
+    <div style="font-size:13px;color:#4A4060;line-height:1.6;">
+      This is a diagnostic email sent from the admin dashboard's Resend test endpoint. If you received this, RESEND_API_KEY and EMAIL_FROM are both configured correctly and Resend accepted the send. Safe to ignore.
+    </div>
+    <div style="font-size:11px;color:#9890AA;margin-top:16px;">Sent ${new Date().toISOString()}</div>
+  </div>
+</body></html>`
+
+  const result = await sendResendEmail('admin diagnostic test email', apiKey, from, to, 'RWNK — Resend test email', html)
+  return { ...result, configured: true }
 }
