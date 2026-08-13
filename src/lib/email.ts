@@ -69,6 +69,14 @@ function formatAmount(amount: number, currency: string, language: EmailLanguage)
   return `${amount.toFixed(3)} ${symbol}`
 }
 
+// Split out for the customer-facing order summary card, which lists amount
+// and currency as two separate rows rather than one combined "5.000 KWD"
+// value (see buildEmailHtml). formatAmount above stays as-is since the
+// admin notification email still wants them combined.
+function formatCurrencyLabel(currency: string, language: EmailLanguage): string {
+  return currency === 'KWD' ? (language === 'ar' ? 'د.ك' : 'KWD') : currency
+}
+
 function formatDate(iso: string, language: EmailLanguage): string {
   try {
     const locale = language === 'ar' ? 'ar-KW' : 'en-US'
@@ -84,143 +92,189 @@ function formatDate(iso: string, language: EmailLanguage): string {
 const COPY: Record<EmailLanguage, {
   dir: 'rtl' | 'ltr'
   subject: (invoiceNumber: string) => string
+  preheader: string
+  eyebrow: string
   heading: string
   greeting: (customerName: string) => string
   intro: (productName: string) => string
+  orderCardTitle: string
   labelOrderNumber: string
-  labelBookName: string
-  labelLanguage: string
-  labelPurchaseDate: string
-  labelAmountPaid: string
-  languageValue: string
+  labelProductName: string
+  labelAmount: string
+  labelCurrency: string
+  labelOrderDate: string
+  labelEmail: string
+  downloadTitle: string
   downloadButton: string
   linkFallback: string
-  supportIntro: string
+  supportHeading: string
+  supportSubtext: string
   websiteLabel: string
+  footerBrand: string
   footerNote: string
 }> = {
   ar: {
     dir: 'rtl',
     subject: () => 'تم استلام طلبك بنجاح ✨',
-    heading: 'تم الدفع بنجاح!',
+    preheader: 'تم تأكيد دفعتك — كتابك جاهز للتحميل الآن.',
+    eyebrow: 'إيصال الشراء',
+    heading: 'تم الدفع بنجاح 🎉',
     greeting: customerName => `مرحباً ${customerName}،`,
-    intro: productName => `شكراً لشرائك — ${productName} الآن ملكك ويمكنك تحميله فوراً.`,
+    intro: productName => `شكرًا لشرائك ${productName}.`,
+    orderCardTitle: 'ملخص الطلب',
     labelOrderNumber: 'رقم الطلب',
-    labelBookName: 'اسم الكتاب',
-    labelLanguage: 'اللغة المختارة',
-    labelPurchaseDate: 'تاريخ الشراء',
-    labelAmountPaid: 'المبلغ المدفوع',
-    languageValue: '🇸🇦 العربية',
-    downloadButton: 'تحميل الكتاب الآن',
+    labelProductName: 'اسم المنتج',
+    labelAmount: 'المبلغ',
+    labelCurrency: 'العملة',
+    labelOrderDate: 'تاريخ الطلب',
+    labelEmail: 'البريد الإلكتروني',
+    downloadTitle: 'كتابك جاهز',
+    downloadButton: 'تحميل الكتاب',
     linkFallback: 'إذا لم يعمل الزر، انسخي هذا الرابط:',
-    supportIntro: 'تحتاجين مساعدة؟ تواصلي معنا على',
+    supportHeading: 'تحتاج مساعدة؟',
+    supportSubtext: 'فريقنا هنا لمساعدتك في أي وقت',
     websiteLabel: 'زيارة موقع رَوْنَق',
-    footerNote: 'هذه رسالة إيصال آلية',
+    footerBrand: 'رَوْنَق | RWNK',
+    footerNote: 'هذه رسالة إيصال آلية، لا حاجة للرد عليها',
   },
   en: {
     dir: 'ltr',
     subject: () => 'Your RWNK Guide is Ready ✨',
-    heading: 'Payment Successful!',
+    preheader: 'Your payment is confirmed — your book is ready to download now.',
+    eyebrow: 'Purchase Receipt',
+    heading: 'Payment Successful 🎉',
     greeting: customerName => `Hi ${customerName},`,
-    intro: productName => `Thank you for your purchase — ${productName} is now yours and ready to download.`,
+    intro: productName => `Thank you for purchasing ${productName}.`,
+    orderCardTitle: 'Order Summary',
     labelOrderNumber: 'Order Number',
-    labelBookName: 'Book',
-    labelLanguage: 'Selected Language',
-    labelPurchaseDate: 'Purchase Date',
-    labelAmountPaid: 'Amount Paid',
-    languageValue: '🇺🇸 English',
-    downloadButton: 'Download Your Book Now',
+    labelProductName: 'Product Name',
+    labelAmount: 'Amount',
+    labelCurrency: 'Currency',
+    labelOrderDate: 'Order Date',
+    labelEmail: 'Email',
+    downloadTitle: 'Your book is ready',
+    downloadButton: 'Download Your Book',
     linkFallback: "If the button doesn't work, copy this link:",
-    supportIntro: 'Need help? Contact us at',
+    supportHeading: 'Need help?',
+    supportSubtext: "We're here to help anytime",
     websiteLabel: 'Visit the RWNK website',
-    footerNote: 'This is an automated receipt',
+    footerBrand: 'RWNK | رَوْنَق',
+    footerNote: 'This is an automated receipt — no reply needed',
   },
 }
 
 // Table-based layout with inline styles only — the two things that survive
 // every major email client's HTML sanitizer (Gmail/Outlook strip <style>
 // blocks and mostly ignore flexbox/grid). Single-column, generous tap
-// targets, max-width 100% images — this is "mobile-friendly" for email
-// specifically because it does NOT rely on @media queries most clients
-// don't honor, not because it uses any responsive framework. Layout is
-// identical between languages; only `dir`, text alignment for the
-// value column, and the copy itself flip with C.dir.
+// targets, max-width 100% images, bgcolor attributes alongside CSS
+// background (Outlook's Word rendering engine honors the HTML attribute
+// even when it drops the matching CSS) — this is "works in Gmail/Apple
+// Mail/Outlook/mobile" for email specifically because it does NOT rely on
+// @media queries or background-images most clients don't honor, not
+// because it uses any responsive framework. Layout is identical between
+// languages; only `dir`, text alignment for the value column, and the copy
+// itself flip with C.dir.
 function buildEmailHtml(p: PurchaseEmailParams): string {
   const C = COPY[p.language]
-  const amount = formatAmount(p.amount, p.currency, p.language)
   const date = formatDate(p.purchaseDate, p.language)
+  const currency = formatCurrencyLabel(p.currency, p.language)
   const valueAlign = C.dir === 'rtl' ? 'left' : 'right'
   const rows: [string, string, boolean?][] = [
     [C.labelOrderNumber, p.invoiceNumber, true],
-    [C.labelBookName, p.productName],
-    [C.labelLanguage, C.languageValue],
-    [C.labelPurchaseDate, date],
-    [C.labelAmountPaid, amount, true],
+    [C.labelProductName, escapeHtml(p.productName)],
+    [C.labelAmount, p.amount.toFixed(3), true],
+    [C.labelCurrency, currency, true],
+    [C.labelOrderDate, date],
+    [C.labelEmail, escapeHtml(p.to), true],
   ]
 
   return `<!doctype html>
 <html lang="${p.language}" dir="${C.dir}">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${p.storeName}</title></head>
-<body style="margin:0;padding:0;background:#FAFAFA;font-family:Tahoma,Arial,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FAFAFA;padding:32px 16px;">
-    <tr><td align="center">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#FFFFFF;border-radius:20px;overflow:hidden;border:1px solid #EDE8F5;">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>${escapeHtml(p.storeName)}</title>
+</head>
+<body style="margin:0;padding:0;background:#F4F2FA;font-family:Tahoma,Arial,sans-serif;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">${escapeHtml(C.preheader)}</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4F2FA;" bgcolor="#F4F2FA">
+    <tr><td style="padding:40px 16px;" align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#FFFFFF;border-radius:20px;overflow:hidden;border:1px solid #EDE8F5;box-shadow:0 4px 24px rgba(103,71,178,.06);" bgcolor="#FFFFFF">
 
-        <tr><td style="background:#6747B2;padding:28px 24px;text-align:center;">
+        <!-- Accent bar -->
+        <tr><td style="background:#6747B2;height:5px;line-height:5px;font-size:0;" bgcolor="#6747B2">&nbsp;</td></tr>
+
+        <!-- Header -->
+        <tr><td style="padding:30px 36px 24px;text-align:center;border-bottom:1px solid #F1EEFA;">
           ${p.logoUrl
-            ? `<img src="${p.logoUrl}" alt="${p.storeName}" style="max-width:160px;max-height:48px;width:auto;height:auto;display:inline-block;border:0;" />`
-            : `<div style="font-size:20px;font-weight:900;color:#FFFFFF;">${p.storeName}</div>`}
+            ? `<img src="${p.logoUrl}" alt="${escapeHtml(p.storeName)}" style="max-width:150px;max-height:44px;width:auto;height:auto;display:inline-block;border:0;" />`
+            : `<div style="font-size:19px;font-weight:900;color:#6747B2;letter-spacing:.3px;">${escapeHtml(p.storeName)}</div>`}
         </td></tr>
 
-        <tr><td style="padding:32px 28px 8px;text-align:center;">
-          <div style="width:56px;height:56px;border-radius:50%;background:#E1F5EE;margin:0 auto 16px;line-height:56px;font-size:26px;">✅</div>
-          <div style="font-size:20px;font-weight:900;color:#1A1228;margin-bottom:8px;">${C.heading}</div>
-          ${p.customerName ? `<div style="font-size:14px;font-weight:700;color:#1A1228;margin-bottom:6px;">${C.greeting(escapeHtml(p.customerName))}</div>` : ''}
-          <div style="font-size:14px;color:#4A4060;line-height:1.7;margin-bottom:20px;">
-            ${C.intro(p.productName)}
+        <!-- Success -->
+        <tr><td style="padding:40px 36px 8px;text-align:center;">
+          <div style="width:60px;height:60px;border-radius:50%;background:#E1F5EE;margin:0 auto 20px;line-height:60px;font-size:28px;" bgcolor="#E1F5EE">✅</div>
+          <div style="font-size:11px;font-weight:900;color:#6747B2;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">${C.eyebrow}</div>
+          <div style="font-size:23px;font-weight:900;color:#1A1228;margin-bottom:14px;">${C.heading}</div>
+          ${p.customerName ? `<div style="font-size:14px;font-weight:700;color:#1A1228;margin-bottom:8px;">${C.greeting(escapeHtml(p.customerName))}</div>` : ''}
+          <div style="font-size:14px;color:#4A4060;line-height:1.8;max-width:380px;margin:0 auto 28px;">
+            ${C.intro(escapeHtml(p.productName))}
           </div>
         </td></tr>
 
-        <tr><td style="padding:0 28px 20px;text-align:center;">
+        <!-- Book cover -->
+        <tr><td style="padding:0 36px 32px;text-align:center;">
           ${p.bookCoverUrl
-            ? `<img src="${p.bookCoverUrl}" alt="${p.productName}" width="96" style="width:96px;height:auto;border-radius:12px;box-shadow:0 8px 24px rgba(103,71,178,.25);display:inline-block;border:0;" />`
-            : `<div style="width:96px;height:126px;border-radius:12px;display:inline-block;background:linear-gradient(145deg,#6747B2,#8b6dd4);"></div>`}
+            ? `<img src="${p.bookCoverUrl}" alt="${escapeHtml(p.productName)}" width="104" style="width:104px;height:auto;border-radius:14px;box-shadow:0 10px 28px rgba(103,71,178,.28);display:inline-block;border:0;" />`
+            : `<div style="width:104px;height:136px;border-radius:14px;display:inline-block;background:linear-gradient(145deg,#6747B2,#8b6dd4);box-shadow:0 10px 28px rgba(103,71,178,.28);"></div>`}
         </td></tr>
 
-        <tr><td style="padding:0 28px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EDE8FF;border-radius:12px;padding:4px;">
+        <!-- Order summary card -->
+        <tr><td style="padding:0 36px;">
+          <div style="font-size:12px;font-weight:900;color:#1A1228;margin-bottom:10px;">${C.orderCardTitle}</div>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F7F5FE;border:1px solid #EDE8FF;border-radius:14px;" bgcolor="#F7F5FE">
             ${rows.map(([label, value, ltrValue], i) => {
-              const isLast = i === rows.length - 1
-              const border = i === 0 ? '' : 'border-top:1px solid #DDD6F0;'
+              const border = i === 0 ? '' : 'border-top:1px solid #E4DEF7;'
               return `
-            <tr><td style="padding:14px 18px;font-size:13px;color:#4A4060;${border}">${label}</td>
-                <td style="padding:14px 18px;font-size:${isLast ? '14px' : '13px'};font-weight:${isLast ? '900' : '700'};color:${isLast ? '#6747B2' : '#1A1228'};text-align:${valueAlign};${border}"${ltrValue ? ' dir="ltr"' : ''}>${value}</td></tr>`
+            <tr><td style="padding:13px 20px;font-size:12.5px;color:#4A4060;${border}">${label}</td>
+                <td style="padding:13px 20px;font-size:13px;font-weight:${ltrValue ? '900' : '700'};color:${ltrValue ? '#6747B2' : '#1A1228'};text-align:${valueAlign};${border}" dir="ltr">${value}</td></tr>`
             }).join('')}
           </table>
         </td></tr>
 
-        <tr><td style="padding:28px;text-align:center;">
-          <a href="${p.successUrl}" style="display:inline-block;background:#6747B2;color:#FFFFFF;text-decoration:none;font-size:15px;font-weight:900;padding:16px 40px;border-radius:12px;">
-            ${C.downloadButton}
-          </a>
-          <div style="font-size:11px;color:#9890AA;margin-top:12px;line-height:1.6;">
+        <!-- Download CTA -->
+        <tr><td style="padding:32px 36px;text-align:center;">
+          <div style="font-size:14px;font-weight:900;color:#1A1228;margin-bottom:16px;">${C.downloadTitle}</div>
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+            <tr><td style="border-radius:13px;" bgcolor="#6747B2">
+              <a href="${p.successUrl}" style="display:inline-block;background:#6747B2;color:#FFFFFF;text-decoration:none;font-size:15px;font-weight:900;padding:17px 48px;border-radius:13px;box-shadow:0 6px 20px rgba(103,71,178,.32);">
+                ${C.downloadButton}
+              </a>
+            </td></tr>
+          </table>
+          <div style="font-size:11px;color:#9890AA;margin-top:16px;line-height:1.6;">
             ${C.linkFallback}<br>
             <a href="${p.successUrl}" style="color:#6747B2;word-break:break-all;">${p.successUrl}</a>
           </div>
         </td></tr>
 
-        <tr><td style="padding:0 28px 28px;">
-          <div style="height:1px;background:#EDE8F5;margin-bottom:20px;"></div>
-          <div style="font-size:12px;color:#9890AA;text-align:center;line-height:1.8;">
-            ${C.supportIntro}<br>
-            <a href="mailto:${p.supportEmail}" style="color:#6747B2;font-weight:700;text-decoration:none;">${p.supportEmail}</a>
-            <br><br>
-            <a href="${p.websiteUrl}" style="color:#6747B2;font-weight:700;text-decoration:none;">${C.websiteLabel}</a>
-          </div>
+        <!-- Support -->
+        <tr><td style="padding:0 36px 32px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FAFAFA;border:1px solid #F1EEFA;border-radius:14px;" bgcolor="#FAFAFA">
+            <tr><td style="padding:22px 24px;text-align:center;">
+              <div style="font-size:13px;font-weight:900;color:#1A1228;margin-bottom:4px;">${C.supportHeading}</div>
+              <div style="font-size:12px;color:#9890AA;margin-bottom:12px;">${C.supportSubtext}</div>
+              <a href="mailto:${p.supportEmail}" style="display:inline-block;color:#6747B2;font-weight:900;font-size:13px;text-decoration:none;direction:ltr;">${p.supportEmail}</a>
+            </td></tr>
+          </table>
         </td></tr>
 
-        <tr><td style="background:#FAFAFA;padding:16px;text-align:center;">
-          <div style="font-size:10px;color:#C8C0D8;">© ${new Date(p.purchaseDate).getFullYear()} ${p.storeName} — ${C.footerNote}</div>
+        <!-- Footer -->
+        <tr><td style="background:#FAFAFA;padding:24px 28px;text-align:center;border-top:1px solid #F1EEFA;" bgcolor="#FAFAFA">
+          <div style="font-size:12px;font-weight:900;color:#4A4060;margin-bottom:6px;">${C.footerBrand}</div>
+          <div style="font-size:10.5px;color:#C8C0D8;line-height:1.6;">© ${new Date(p.purchaseDate).getFullYear()} ${escapeHtml(p.storeName)} — ${C.footerNote}</div>
         </td></tr>
 
       </table>

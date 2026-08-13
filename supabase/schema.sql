@@ -315,7 +315,7 @@ CREATE TABLE IF NOT EXISTS public.store_settings (
   product_currency TEXT DEFAULT 'KWD',
   product_id       UUID DEFAULT 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   whatsapp         TEXT DEFAULT '+96500000000',
-  email            TEXT DEFAULT 'hello@rwnk.co',
+  email            TEXT DEFAULT 'info@rwnak.net',
   instagram        TEXT DEFAULT '@rwnak.official',
   twitter          TEXT DEFAULT '@rwnk',
   primary_color    TEXT DEFAULT '#6747B2',
@@ -734,3 +734,16 @@ UPDATE public.products SET file_path = 'books/rwnk-guide-ar.pdf'
 -- would be a bigger behavior change than "send a better admin email."
 -- ═══════════════════════════════════════════════════════════
 ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS customer_name TEXT;
+
+-- ═══════════════════════════════════════════════════════════
+-- 17. store_settings.email — support/contact address shown in the purchase
+-- confirmation email and used as the admin new-order notification
+-- recipient. Moved off the retired hello@rwnk.co to the verified
+-- info@rwnak.net address (same domain EMAIL_FROM already sends from). WHERE
+-- email = the old address only: an admin who already customized this field
+-- to something else is never overwritten. Also applied directly to the live
+-- row via the REST API during this change, same as the file_path_ar/en
+-- backfill above — included here too so a fresh database restored from this
+-- schema file ends up in the same correct state.
+-- ═══════════════════════════════════════════════════════════
+UPDATE public.store_settings SET email = 'info@rwnak.net' WHERE email = 'hello@rwnk.co';

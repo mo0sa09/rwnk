@@ -174,7 +174,7 @@ async function notifyPurchaseCompleted(sb: any, purchase: CompletedPurchaseInfo,
       currency: purchase.currency,
       purchaseDate: purchase.created_at,
       successUrl: `${appUrl}/success?purchaseId=${purchase.id}`,
-      supportEmail: settings?.email ?? 'hello@rwnk.co',
+      supportEmail: settings?.email ?? 'info@rwnak.net',
       websiteUrl: appUrl,
       logoUrl: settings?.logo_url ?? null,
       bookCoverUrl: settings?.product_image_url ?? null,
@@ -190,7 +190,7 @@ async function notifyPurchaseCompleted(sb: any, purchase: CompletedPurchaseInfo,
     // above: a failure here must never be attributed to (or block) the
     // customer-facing send, and vice versa.
     const adminResult = await sendAdminOrderNotification({
-      to: settings?.email ?? 'hello@rwnk.co',
+      to: settings?.email ?? 'info@rwnak.net',
       storeName: settings?.store_name ?? 'رَوْنَق',
       customerName: purchase.customer_name,
       customerEmail: purchase.email,
