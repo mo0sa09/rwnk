@@ -24,8 +24,9 @@ export interface EnsureUserLinkedResult {
 // money path, so the create-vs-exists decision is made explicitly and
 // deterministically here via createUser(), with the SAME
 // "try create, on already-registered fall back to lookup-by-email" pattern
-// already used by createAccountAfterPurchase()/link-existing-purchase for
-// the manual password-based flow. Idempotent: if the purchase already has a
+// used by /api/link-existing-purchase for the manual password-based flow
+// (see also /api/account/set-password, which reads the app_metadata this
+// function stamps on new accounts). Idempotent: if the purchase already has a
 // user_id (e.g. this is a retried/duplicate callback), it's returned as-is
 // with no auth API calls at all.
 export async function ensureUserLinked(
@@ -49,6 +50,13 @@ export async function ensureUserLinked(
     email,
     email_confirm: true, // paid customer — email is already proven deliverable via the checkout flow, no confirmation click needed to unblock their own purchase
     user_metadata: { source: 'purchase', purchase_id: purchase.id },
+    // No password is set here — this account exists purely so the purchase
+    // has somewhere to link to. app_metadata (never client-writable, unlike
+    // user_metadata) records that fact so /api/account/set-password can
+    // later tell "phantom account, safe to set a first password" apart from
+    // "customer already has a real password, must not be overwritten" —
+    // see the comment on that route for why this distinction exists at all.
+    app_metadata: { password_set: false },
   })
 
   let userId: string | null = null

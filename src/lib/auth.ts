@@ -57,7 +57,7 @@ export async function signOut() {
 
 export async function resetPassword(email: string) {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${APP_URL}/auth/callback?next=/account`,
+    redirectTo: `${APP_URL}/auth/callback?next=/reset-password`,
   })
   if (error) throw error
 }
@@ -72,42 +72,37 @@ export async function updateProfile(userId: string, updates: Record<string, stri
   if (error) throw error
 }
 
+// Deliberately does NOT call supabase.auth.signUp() — by the time the
+// Success page is reachable, ensureUserLinked() (src/lib/payment-access.ts)
+// has already run server-side and created this email's Auth account
+// (passwordless — see its comment), so signUp() here would ALWAYS hit
+// "already registered", even for a customer setting a password for the
+// very first time. That used to silently discard the password they just
+// typed and quietly swap in an email-reset link instead — see the comment
+// on /api/account/set-password for the full story and how it tells a
+// still-passwordless account apart from one with a real password already.
 export async function createAccountAfterPurchase(email: string, password: string, purchaseId: string) {
-  const { data, error } = await supabase.auth.signUp({
-    email, password,
-    options: { data: { source: 'purchase', purchase_id: purchaseId }, emailRedirectTo: `${APP_URL}/auth/callback?next=/library` },
+  const res = await fetch('/api/account/set-password', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ purchaseId, email, password }),
   })
-  if (error?.message?.toLowerCase().includes('already registered')) {
-    // Existing customer buying again — link this new purchase to their
-    // existing account so it shows up in their library once they log back
-    // in, then send them a reset link (they've likely forgotten their
-    // password since this could be their first purchase since signing up).
-    if (purchaseId) {
-      try {
-        await fetch('/api/link-existing-purchase', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ purchaseId, email }),
-        })
-      } catch { /* non-fatal — support can link it manually if this fails */ }
-    }
-    await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${APP_URL}/auth/callback?next=/library` })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(json.error ?? 'ERROR')
+
+  if (json.alreadyExists) {
+    // A real password already exists on this account (set on a previous
+    // purchase, or via /register) — never overwritten. Send a reset link
+    // instead so the customer proves they own the inbox before anything
+    // about their credentials changes.
+    await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${APP_URL}/auth/callback?next=/reset-password` })
     return { alreadyExists: true, user: null }
   }
-  if (error) throw error
 
-  // Link the purchase to the new account so it shows up in their library.
-  // Uses the just-created user's id directly since a session may not exist
-  // yet (email confirmation can be required before cookies are set).
-  if (data.user && purchaseId) {
-    try {
-      await fetch('/api/link-purchase', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ purchaseId, userId: data.user.id, email }),
-      })
-    } catch { /* non-fatal — support can link it manually if this fails */ }
-  }
-
-  return { user: data.user, alreadyExists: false }
+  // Password was just set server-side (the admin API that set it has no
+  // concept of a browser session) — sign in now so the customer actually
+  // ends up authenticated, matching what "أنشئي حسابي وحفظ الوصول" promised.
+  const { user } = await signIn(email, password)
+  return { user, alreadyExists: false }
 }
 
 export async function setPasswordFromToken(password: string) {

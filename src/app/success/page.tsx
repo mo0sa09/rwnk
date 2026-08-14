@@ -305,9 +305,11 @@ export default function SuccessPage() {
               <IconCircleCheck size={20} color="#085041" />
               <div>
                 <div style={{ fontSize:13, fontWeight:900, color:'#04342C' }}>
-                  {alreadyUser ? 'تم إرسال رابط الدخول للبريد' : 'تم إنشاء حسابك بنجاح'}
+                  {alreadyUser ? 'لديك حساب بالفعل — تم إرسال رابط لتعيين كلمة المرور إلى بريدك' : 'تم إنشاء حسابك بنجاح'}
                 </div>
-                <div style={{ fontSize:11, color:'#085041', marginTop:2 }}>يمكنك الآن الوصول للمكتبة في أي وقت</div>
+                <div style={{ fontSize:11, color:'#085041', marginTop:2 }}>
+                  {alreadyUser ? 'افتحي الرابط من بريدك الإلكتروني لتسجيل الدخول' : 'يمكنك الآن الوصول للمكتبة في أي وقت'}
+                </div>
               </div>
             </div>
           )}
