@@ -26,6 +26,15 @@ export default function LoginPage() {
         const next = new URLSearchParams(window.location.search).get('next')
         window.location.href = next || '/library'
       } else {
+        // /auth/callback lands here with ?error=auth_failed when a
+        // password-reset or email-confirmation link couldn't be exchanged
+        // for a session (expired, already used, or the link's redirect
+        // wasn't accepted) — this used to be silently swallowed, leaving the
+        // customer on a blank login form with no idea their reset link just
+        // failed.
+        if (new URLSearchParams(window.location.search).get('error') === 'auth_failed') {
+          setError('الرابط منتهي الصلاحية أو غير صالح — يرجى طلب رابط جديد')
+        }
         setChecking(false)
       }
     })
