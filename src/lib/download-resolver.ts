@@ -59,3 +59,48 @@ export function resolveProductFilePath(rawLanguage: string | null | undefined, p
   const fallback = product?.file_path || null
   return { language, filePath: fallback, degraded: fallback !== null }
 }
+
+// ── Dynamic (book_languages-backed) resolution ───────────────
+// Added for the admin-managed language system: book_languages.language_code
+// is now the source of truth for ANY language (not just ar/en), per
+// `purchase_id -> book_language -> book_languages -> file_path`. The ar/en
+// product columns above are kept as a fallback ONLY for the two languages
+// that predate this table (a purchase made before this migration ran, or a
+// live database where the migration hasn't been applied yet) — a language
+// the admin adds from the dashboard has no such legacy fallback and simply
+// resolves to null (caller shows a clear error) if its file is missing.
+
+export interface BookLanguageRow {
+  file_path: string | null
+}
+
+export interface ResolvedBookFile {
+  filePath: string | null
+  // True whenever the row's own file_path could not be used directly — either
+  // it fell back to the legacy ar/en product columns, or no file exists at
+  // all for this language. Mirrors ResolvedFile.degraded's contract: the
+  // caller logs a warning whenever this is true.
+  degraded: boolean
+}
+
+// `bookLanguageRow` is intentionally NOT filtered by is_active by the
+// caller — a disabled language must keep serving its EXISTING purchasers
+// (see §11 of the feature spec: disabling only hides it from new checkouts).
+// `legacyProduct` is only consulted for 'ar'/'en', matching the exact two
+// codes the pre-dynamic system ever supported.
+export function resolveBookLanguageFile(
+  languageCode: string,
+  bookLanguageRow: BookLanguageRow | null | undefined,
+  legacyProduct?: ProductFiles | null
+): ResolvedBookFile {
+  if (bookLanguageRow?.file_path) {
+    return { filePath: bookLanguageRow.file_path, degraded: false }
+  }
+
+  if (languageCode === 'ar' || languageCode === 'en') {
+    const fallback = resolveProductFilePath(languageCode, legacyProduct)
+    return { filePath: fallback.filePath, degraded: true }
+  }
+
+  return { filePath: null, degraded: true }
+}

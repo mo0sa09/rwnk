@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseServerEnv } from '@/lib/env'
-import { resolveProductFilePath } from '@/lib/download-resolver'
+import { resolveBookLanguageFile } from '@/lib/download-resolver'
+import { isMissingTableError } from '@/lib/db-resilience'
 export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get('token')
@@ -50,19 +51,28 @@ export async function GET(request: NextRequest) {
     pr = retry.data
   }
 
-  // book_language picks which of the two per-language files to serve — see
-  // resolveProductFilePath (src/lib/download-resolver.ts) for the exact,
-  // unit-tested rule: an Arabic request never receives file_path_en, and an
-  // English request never receives file_path_ar unless file_path_en is
-  // genuinely unconfigured (degraded=true), in which case it's logged as a
-  // warning rather than silently pretending the right file was served.
-  const { language, filePath, degraded } = resolveProductFilePath((pu as any)?.book_language, pr as any)
+  // Source of truth per the dynamic-languages feature:
+  // purchase_id -> book_language -> book_languages -> file_path. The ar/en
+  // columns on `products` (above) are ONLY a fallback for a purchase whose
+  // language isn't (yet) a row in book_languages — a pre-migration database,
+  // or a purchase made before this table existed. Deliberately NOT filtered
+  // by is_active: a language the admin has since disabled must keep serving
+  // its existing purchasers (§11 of the feature spec) — disabling only hides
+  // it from NEW checkouts, never breaks a download already paid for.
+  const languageCode = (pu as any)?.book_language ?? 'ar'
+  const blResult = await sb.from('book_languages').select('file_path').eq('language_code', languageCode).maybeSingle()
+  if (blResult.error && !isMissingTableError(blResult.error)) {
+    console.error(`[download] book_languages lookup failed for language=${languageCode}: ${blResult.error.message} — falling back to legacy product columns`)
+  }
+  const bookLanguageRow = blResult.data ?? null
+
+  const { filePath, degraded } = resolveBookLanguageFile(languageCode, bookLanguageRow, pr as any)
 
   if (degraded) {
-    console.warn(`[download] purchase ${t.purchase_id} requested language=${language} but its primary file isn't configured — served a fallback (${filePath ?? 'none available'}) instead`)
+    console.warn(`[download] purchase ${t.purchase_id} requested language=${languageCode} but book_languages had no usable file — served a fallback (${filePath ?? 'none available'}) instead`)
   }
   if (!filePath) {
-    console.error(`[download] product for purchase ${t.purchase_id} has no file configured for language=${language} (and no legacy file_path fallback either)`)
+    console.error(`[download] no file configured anywhere for purchase ${t.purchase_id} language=${languageCode}`)
     return NextResponse.json({ error: 'File not found' }, { status: 404 })
   }
 
@@ -72,6 +82,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Storage error' }, { status: 500 })
   }
 
-  console.log(`[download] purchase ${t.purchase_id} (language=${language}) downloading ${filePath} — redirecting to signed URL (expires in 1h)`)
+  console.log(`[download] purchase ${t.purchase_id} (language=${languageCode}) downloading ${filePath} — redirecting to signed URL (expires in 1h)`)
   return NextResponse.redirect((signed as any).signedUrl)
 }

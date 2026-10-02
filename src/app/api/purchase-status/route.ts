@@ -38,5 +38,20 @@ export async function GET(request: NextRequest) {
 
   if (error || !purchase) return NextResponse.json({ error: 'الطلب غير موجود' }, { status: 404 })
 
-  return NextResponse.json({ data: purchase })
+  // The Success page needs a human display name for whatever language code
+  // this purchase has, including a language an admin added after the fact —
+  // it can't rely on a hardcoded ar/en label map anymore. book_languages is
+  // public-readable only when is_active=true (see schema §18.1), but a
+  // purchase must keep showing its language's name even after the admin
+  // disables it later, so this reads with the service-role client rather
+  // than relying on that RLS policy. Missing table/row both degrade to a
+  // plain null — the Success page falls back to the raw code in that case.
+  const bookLanguage = (purchase as any)?.book_language ?? null
+  let languageNames: { name_ar: string; name_en: string } | null = null
+  if (bookLanguage) {
+    const { data: lang } = await sb.from('book_languages').select('name_ar,name_en').eq('language_code', bookLanguage).maybeSingle()
+    if (lang) languageNames = lang
+  }
+
+  return NextResponse.json({ data: { ...purchase, language_name_ar: languageNames?.name_ar ?? null, language_name_en: languageNames?.name_en ?? null } })
 }

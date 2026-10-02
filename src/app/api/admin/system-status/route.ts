@@ -25,6 +25,7 @@ const EXPECTED_SCHEMA: ExpectedTable[] = [
   { table: 'store_settings', columns: STORE_SETTINGS_FIELDS },
   { table: 'products', columns: ['file_path', 'file_path_ar', 'file_path_en', 'version', 'version_ar', 'version_en'] },
   { table: 'purchases', columns: ['book_language', 'customer_name'] },
+  { table: 'book_languages', columns: ['language_code', 'name_ar', 'name_en', 'file_path', 'file_name', 'file_size', 'mime_type', 'is_active', 'sort_order'] },
 ]
 
 // Server-only env vars (PAYMENT_GATEWAY, MYFATOORAH_*, service role key) are

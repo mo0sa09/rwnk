@@ -60,3 +60,12 @@ export interface PageContent {
   meta_description: string | null
   content: string
 }
+
+export interface BookLanguage {
+  id: string
+  language_code: string
+  name_ar: string
+  name_en: string
+  is_active: boolean
+  sort_order: number
+}

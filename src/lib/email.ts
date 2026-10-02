@@ -12,7 +12,16 @@
 // as anything other than a log line; the Success page is the guaranteed
 // delivery path regardless of whether this email ever arrives.
 
-export type EmailLanguage = 'ar' | 'en'
+// Any book_languages.language_code the admin has configured, not just
+// 'ar'/'en' — but only those two have a fully translated template (COPY
+// below). Any other code renders with the English template as a pragmatic
+// default (see getCopy): translating arbitrary admin-added languages' email
+// copy isn't something this app can automate, while the thing that actually
+// matters — the download link resolving to THAT language's file — already
+// works for any code via the success page / download route, independent of
+// which language the email text itself is written in.
+export type EmailLanguage = string
+type TemplateKey = 'ar' | 'en'
 
 export interface PurchaseEmailParams {
   to: string
@@ -89,7 +98,7 @@ function formatDate(iso: string, language: EmailLanguage): string {
 // Full per-language copy — not a translation lookup over shared English
 // strings, so each language's email reads naturally (word order, tone,
 // punctuation) rather than like a mechanically-substituted template.
-const COPY: Record<EmailLanguage, {
+const COPY: Record<TemplateKey, {
   dir: 'rtl' | 'ltr'
   subject: (invoiceNumber: string) => string
   preheader: string
@@ -163,6 +172,13 @@ const COPY: Record<EmailLanguage, {
   },
 }
 
+// Falls back to the English template for any language code that isn't
+// 'ar'/'en' (see the EmailLanguage comment above) — never throws, never
+// renders a half-filled template.
+function getCopy(language: EmailLanguage) {
+  return COPY[language as TemplateKey] ?? COPY.en
+}
+
 // Table-based layout with inline styles only — the two things that survive
 // every major email client's HTML sanitizer (Gmail/Outlook strip <style>
 // blocks and mostly ignore flexbox/grid). Single-column, generous tap
@@ -175,7 +191,7 @@ const COPY: Record<EmailLanguage, {
 // languages; only `dir`, text alignment for the value column, and the copy
 // itself flip with C.dir.
 function buildEmailHtml(p: PurchaseEmailParams): string {
-  const C = COPY[p.language]
+  const C = getCopy(p.language)
   const date = formatDate(p.purchaseDate, p.language)
   const currency = formatCurrencyLabel(p.currency, p.language)
   const valueAlign = C.dir === 'rtl' ? 'left' : 'right'
@@ -326,7 +342,11 @@ export interface AdminOrderNotificationParams {
   customerEmail: string
   amount: number
   currency: string
-  language: EmailLanguage
+  // The purchased language's own display name (e.g. "العربية 🇸🇦", "Français")
+  // — resolved by the caller from book_languages, NOT derived here. A plain
+  // ar/en ternary can't represent an admin-added third language, and this
+  // notification has no reason to know about that table itself.
+  languageLabel: string
   invoiceNumber: string
   purchaseDate: string // ISO string
 }
@@ -347,7 +367,6 @@ export async function sendAdminOrderNotification(p: AdminOrderNotificationParams
   }
 
   const date = formatDate(p.purchaseDate, 'ar')
-  const languageLabel = p.language === 'en' ? 'English 🇺🇸' : 'العربية 🇸🇦'
   const amount = formatAmount(p.amount, p.currency, 'ar')
 
   const html = `<!doctype html>
@@ -364,7 +383,7 @@ export async function sendAdminOrderNotification(p: AdminOrderNotificationParams
           ['العميل', p.customerName ? escapeHtml(p.customerName) : '—'],
           ['البريد الإلكتروني', escapeHtml(p.customerEmail)],
           ['المبلغ', amount],
-          ['اللغة المختارة', languageLabel],
+          ['اللغة المختارة', escapeHtml(p.languageLabel)],
           ['رقم الفاتورة', p.invoiceNumber],
           ['تاريخ الشراء', date],
         ].map(([label, value]) => `
@@ -395,7 +414,7 @@ export async function sendPurchaseConfirmationEmail(p: PurchaseEmailParams): Pro
     return { ok: false, reason: 'not_configured' }
   }
 
-  const subject = COPY[p.language].subject(p.invoiceNumber)
+  const subject = getCopy(p.language).subject(p.invoiceNumber)
   return sendResendEmail(`purchase confirmation (language=${p.language}, invoice=${p.invoiceNumber})`, apiKey, from, p.to, subject, buildEmailHtml(p))
 }
 

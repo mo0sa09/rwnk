@@ -153,17 +153,26 @@ async function notifyPurchaseCompleted(sb: any, purchase: CompletedPurchaseInfo,
     // confirmation/admin-notification email to generic fallback text with
     // no error logged anywhere. getSingletonRow tolerates the duplicate AND
     // logs it.
-    const [{ data: product }, { data: settings, error: settingsErr }] = await Promise.all([
+    const language = purchase.book_language ?? 'ar'
+    const [{ data: product }, { data: settings, error: settingsErr }, { data: languageRow }] = await Promise.all([
       purchase.product_id
         ? sb.from('products').select('name').eq('id', purchase.product_id).single()
         : Promise.resolve({ data: null }),
       getSingletonRow<{ store_name: string; email: string; logo_url: string | null; product_image_url: string | null }>(
         sb, 'store_settings', 'store_name,email,logo_url,product_image_url'
       ),
+      // book_languages' public-read RLS only allows is_active=true, but a
+      // completed purchase's confirmation email must still show the right
+      // language name even if it's since been disabled — same reasoning as
+      // /api/purchase-status. sb here is the service-role client, so this
+      // bypasses that policy on purpose.
+      sb.from('book_languages').select('name_ar,name_en').eq('language_code', language).maybeSingle(),
     ])
     if (settingsErr) console.error(`[payment/callback] purchase ${purchase.id} — could not load store_settings for email copy: ${settingsErr.message} (using fallback store name/email)`)
 
-    const language = purchase.book_language === 'en' ? 'en' : 'ar'
+    const languageLabel = languageRow?.name_ar
+      ?? (language === 'en' ? 'English' : language === 'ar' ? 'العربية' : language)
+
     const result = await sendPurchaseConfirmationEmail({
       to: purchase.email,
       language,
@@ -196,7 +205,7 @@ async function notifyPurchaseCompleted(sb: any, purchase: CompletedPurchaseInfo,
       customerEmail: purchase.email,
       amount: purchase.amount,
       currency: purchase.currency,
-      language,
+      languageLabel,
       invoiceNumber: purchase.invoice_number ?? purchase.id,
       purchaseDate: purchase.created_at,
     })

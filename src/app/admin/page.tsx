@@ -7,7 +7,7 @@ import Image from 'next/image'
 import { C } from '@/lib/theme'
 import {
   IconLayoutDashboard, IconChartBar, IconReceipt, IconCreditCard,
-  IconUsers, IconBox, IconWorld, IconUserCog,
+  IconUsers, IconBox, IconWorld, IconUserCog, IconLanguage,
 } from '@tabler/icons-react'
 import { signOut } from '@/lib/auth'
 import { ToastProvider, ConfirmProvider } from '@/components/admin/adminUi'
@@ -17,11 +17,12 @@ import { OrdersTab } from '@/components/admin/OrdersTab'
 import { PaymentsTab } from '@/components/admin/PaymentsTab'
 import { CustomersTab } from '@/components/admin/CustomersTab'
 import { ProductTab } from '@/components/admin/ProductTab'
+import { BookLanguagesTab } from '@/components/admin/BookLanguagesTab'
 import { WebsiteSettingsTab } from '@/components/admin/WebsiteSettingsTab'
 import { AccountSettingsTab } from '@/components/admin/AccountSettingsTab'
 import { SchemaStatusBanner } from '@/components/admin/SchemaStatusBanner'
 
-type Tab = 'dashboard' | 'analytics' | 'orders' | 'payments' | 'customers' | 'product' | 'website' | 'account'
+type Tab = 'dashboard' | 'analytics' | 'orders' | 'payments' | 'customers' | 'product' | 'languages' | 'website' | 'account'
 
 const NAV: { id: Tab; label: string; icon: typeof IconLayoutDashboard }[] = [
   { id: 'dashboard', label: 'لوحة التحكم',      icon: IconLayoutDashboard },
@@ -30,6 +31,7 @@ const NAV: { id: Tab; label: string; icon: typeof IconLayoutDashboard }[] = [
   { id: 'payments',  label: 'المدفوعات',        icon: IconCreditCard },
   { id: 'customers', label: 'العملاء',          icon: IconUsers },
   { id: 'product',   label: 'إدارة المنتج',     icon: IconBox },
+  { id: 'languages', label: 'لغات الكتاب',      icon: IconLanguage },
   { id: 'website',   label: 'إعدادات الموقع',   icon: IconWorld },
   { id: 'account',   label: 'إعدادات الحساب',   icon: IconUserCog },
 ]
@@ -93,6 +95,7 @@ function AdminShell() {
         {tab === 'payments' && <PaymentsTab />}
         {tab === 'customers' && <CustomersTab />}
         {tab === 'product' && <ProductTab />}
+        {tab === 'languages' && <BookLanguagesTab />}
         {tab === 'website' && <WebsiteSettingsTab />}
         {tab === 'account' && <AccountSettingsTab />}
       </main>

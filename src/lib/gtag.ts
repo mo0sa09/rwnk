@@ -25,7 +25,9 @@ export function pageview(url: string) {
   callGtag('event', 'page_view', { page_path: url })
 }
 
-export type BookLanguage = 'ar' | 'en'
+// Any admin-configured book_languages.language_code, not just 'ar'/'en' —
+// GA4 just records whatever string the purchase/checkout flow passes it.
+export type BookLanguage = string
 
 export interface GAItem {
   item_id: string

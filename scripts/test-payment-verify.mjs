@@ -13,7 +13,7 @@
 import { deriveMyFatoorahVerdict, decideFinalize, resultStatusToDestination, extractMyFatoorahWebhookPurchaseId } from '../src/lib/payment-verify.ts'
 import { ensureUserLinked, mintDownloadToken } from '../src/lib/payment-access.ts'
 import { sendPurchaseConfirmationEmail } from '../src/lib/email.ts'
-import { resolveProductFilePath, resolveBookLanguage } from '../src/lib/download-resolver.ts'
+import { resolveProductFilePath, resolveBookLanguage, resolveBookLanguageFile } from '../src/lib/download-resolver.ts'
 
 let pass = 0
 let fail = 0
@@ -616,16 +616,16 @@ section('Bilingual confirmation email (ar / en)')
   await sendPurchaseConfirmationEmail({ ...emailParams, language: 'ar' })
   check('Arabic subject matches exactly', capturedBody?.subject === 'تم استلام طلبك بنجاح ✨', `got "${capturedBody?.subject}"`)
   check('Arabic email is dir="rtl"', capturedBody?.html?.includes('dir="rtl"'))
-  check('Arabic email shows the Arabic language badge', capturedBody?.html?.includes('🇸🇦 العربية'))
+  check('Arabic email shows the Arabic heading', capturedBody?.html?.includes('تم الدفع بنجاح'))
   check('Arabic email does NOT contain the English heading', !capturedBody?.html?.includes('Payment Successful!'))
 
   globalThis.fetch = async (_url, init) => { capturedBody = JSON.parse(init.body); return { ok: true, status: 200, text: async () => '{"id":"email_en"}' } }
   await sendPurchaseConfirmationEmail({ ...emailParams, language: 'en' })
   check('English subject matches exactly', capturedBody?.subject === 'Your RWNK Guide is Ready ✨', `got "${capturedBody?.subject}"`)
   check('English email is dir="ltr"', capturedBody?.html?.includes('dir="ltr"'))
-  check('English email shows the English language badge', capturedBody?.html?.includes('🇺🇸 English'))
-  check('English email does NOT contain the Arabic heading', !capturedBody?.html?.includes('تم الدفع بنجاح!'))
-  check('English email download button uses English copy', capturedBody?.html?.includes('Download Your Book Now'))
+  check('English email shows the English heading', capturedBody?.html?.includes('Payment Successful'))
+  check('English email does NOT contain the Arabic heading', !capturedBody?.html?.includes('تم الدفع بنجاح'))
+  check('English email download button uses English copy', capturedBody?.html?.includes('Download Your Book'))
   check('English email still points the button at /success, never storage', capturedBody?.html?.includes(emailParams.successUrl) && !capturedBody?.html?.includes('supabase.co/storage'))
 
   globalThis.fetch = savedFetch
@@ -701,6 +701,53 @@ const bothConfigured = { file_path: LEGACY_PATH, file_path_ar: AR_PATH, file_pat
   check('nothing configured => filePath is null (caller must show a clear error, never guess)', resolveProductFilePath('ar', nothing).filePath === null)
   check('nothing configured (en) => filePath is null', resolveProductFilePath('en', nothing).filePath === null)
   check('null product object entirely => filePath is null, never throws', resolveProductFilePath('ar', null).filePath === null)
+}
+
+// ─────────────────────────────────────────────────────────────
+// 4g. resolveBookLanguageFile — the dynamic (admin-managed) language system's
+//     resolution rule: purchase_id -> book_language -> book_languages ->
+//     file_path is the source of truth for ANY language code, with the
+//     legacy ar/en product columns as a fallback ONLY for those two specific
+//     codes (a purchase/database that predates book_languages entirely). A
+//     brand-new admin-added language (e.g. 'fr') has no such fallback — it
+//     must resolve to null, never silently serve Arabic or English instead.
+// ─────────────────────────────────────────────────────────────
+section('resolveBookLanguageFile (dynamic book_languages resolution)')
+
+{
+  // ✓ book_languages has a file for this language — used directly, no
+  // fallback consulted at all, for ANY language code (not just ar/en).
+  const result = resolveBookLanguageFile('fr', { file_path: 'books/fr/book-123.pdf' }, null)
+  check('book_languages file_path is used directly for a new language', result.filePath === 'books/fr/book-123.pdf')
+  check('not degraded when book_languages has the file', result.degraded === false)
+}
+
+{
+  // ✓ ar/en still prefer the dynamic table over the legacy columns when both exist.
+  const result = resolveBookLanguageFile('ar', { file_path: 'books/ar/book-999.pdf' }, bothConfigured)
+  check('book_languages takes priority over legacy product columns for ar', result.filePath === 'books/ar/book-999.pdf')
+  check('not degraded', result.degraded === false)
+}
+
+{
+  // ✓ No book_languages row/file yet, but this IS a legacy ar/en code —
+  // falls back to the pre-dynamic product columns rather than 404ing.
+  const ar = resolveBookLanguageFile('ar', null, bothConfigured)
+  const en = resolveBookLanguageFile('en', { file_path: null }, bothConfigured)
+  check('ar falls back to legacy product column when book_languages has no row', ar.filePath === AR_PATH)
+  check('ar fallback is flagged degraded (must be logged)', ar.degraded === true)
+  check('en falls back to legacy product column when book_languages row has no file yet', en.filePath === EN_PATH)
+  check('en fallback is flagged degraded', en.degraded === true)
+}
+
+{
+  // ✗ A brand-new language (e.g. French) has NO legacy fallback to use —
+  // must resolve to null (caller 404s) rather than ever guessing Arabic.
+  const noRow = resolveBookLanguageFile('fr', null, bothConfigured)
+  const noFile = resolveBookLanguageFile('fr', { file_path: null }, bothConfigured)
+  check('new language with no book_languages row => null, never guesses ar/en', noRow.filePath === null)
+  check('new language with no row is degraded', noRow.degraded === true)
+  check('new language with a row but no file => null', noFile.filePath === null)
 }
 
 // ─────────────────────────────────────────────────────────────

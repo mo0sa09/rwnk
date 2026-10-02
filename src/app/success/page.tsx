@@ -23,11 +23,23 @@ interface PurchaseInfo {
   downloads_limit: number
   downloads_used: number
   created_at: string
-  book_language: 'ar' | 'en' | null
+  book_language: string | null
   product_id: string | null
+  language_name_ar: string | null
+  language_name_en: string | null
 }
 
-const LANGUAGE_LABEL: Record<string, string> = { ar: '🇸🇦 العربية', en: '🇺🇸 English' }
+// Pre-dynamic-languages fallback only — used if /api/purchase-status
+// couldn't resolve a name from book_languages (table not migrated yet, or
+// the row was somehow removed). Any language added from the dashboard
+// always has its own name_ar/name_en coming back from the API directly.
+const LEGACY_LANGUAGE_LABEL: Record<string, string> = { ar: 'العربية', en: 'English' }
+
+function languageLabel(info: PurchaseInfo | null): string {
+  if (!info) return LEGACY_LANGUAGE_LABEL.ar
+  const code = info.book_language ?? 'ar'
+  return info.language_name_ar ?? LEGACY_LANGUAGE_LABEL[code] ?? code
+}
 
 type Step = 'loading' | 'not_found' | 'pending' | 'success' | 'done'
 
@@ -203,7 +215,8 @@ export default function SuccessPage() {
               <IconCircleCheck size={30} color="#085041" />
             </div>
             <h1 style={{ fontSize:23, fontWeight:900, marginBottom:6, color:C.text1 }}>تم الدفع بنجاح</h1>
-            <p style={{ fontSize:13, color:C.text3, lineHeight:1.65 }}>{settings.product_name} الآن ملكك — يمكنك تحميله مباشرة</p>
+            <p style={{ fontSize:14, fontWeight:700, color:C.text1, marginBottom:4 }}>{settings.product_name}{info ? ` — ${languageLabel(info)}` : ''}</p>
+            <p style={{ fontSize:13, color:C.text3, lineHeight:1.65 }}>الآن ملكك — يمكنك تحميله مباشرة</p>
           </div>
 
           {/* Book cover */}
@@ -224,7 +237,7 @@ export default function SuccessPage() {
             <div style={{ background:C.primaryLight, border:`1px solid ${C.border}`, borderRadius:12, padding:'12px 16px', marginBottom:20 }}>
               {[
                 { label:'رقم الطلب',     value: info.invoice_number ?? '—' },
-                { label:'لغة الكتاب',    value: LANGUAGE_LABEL[info.book_language ?? 'ar'] ?? LANGUAGE_LABEL.ar },
+                { label:'لغة الكتاب',    value: languageLabel(info) },
                 { label:'تاريخ الشراء',  value: info.created_at ? new Date(info.created_at).toLocaleDateString('ar-KW', { year:'numeric', month:'long', day:'numeric' }) : '—' },
                 { label:'البريد',        value: info.email ?? '—'   },
                 { label:'المبلغ المدفوع',value: `${info.amount} ${info.currency === 'KWD' ? 'د.ك' : info.currency}`, color: C.primary },

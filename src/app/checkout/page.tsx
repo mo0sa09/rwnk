@@ -4,6 +4,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { CardBrandsIcon, KnetIcon, ApplePayIcon } from '@/components/ui/PaymentIcons'
 import { getStoreSettings, DEFAULT_SETTINGS, type StoreSettings } from '@/lib/store-settings'
+import { getBookLanguages } from '@/lib/content'
+import type { BookLanguage } from '@/types'
 import { isValidEmail } from '@/lib/auth'
 import { trackViewItem, trackSelectLanguage, trackBeginCheckout, trackAddPaymentInfo } from '@/lib/gtag'
 
@@ -12,10 +14,6 @@ const PM=[
   {id:'card',Icon:CardBrandsIcon,label:'بطاقة ائتمان'},
   {id:'knet',Icon:KnetIcon,label:'KNET'},
   {id:'apple',Icon:ApplePayIcon,label:'Apple Pay'},
-]
-const LANGS=[
-  {id:'ar' as const,flag:'🇸🇦',label:'العربية'},
-  {id:'en' as const,flag:'🇺🇸',label:'English'},
 ]
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -26,7 +24,8 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 export default function CheckoutPage() {
   const [pm,setPm]=useState('card')
-  const [bookLanguage,setBookLanguage]=useState<'ar'|'en'>('ar')
+  const [bookLanguage,setBookLanguage]=useState('ar')
+  const [languages,setLanguages]=useState<BookLanguage[]>([])
   const [email,setEmail]=useState('')
   const [customerName,setCustomerName]=useState('')
   const [loading,setLoading]=useState(false)
@@ -40,6 +39,12 @@ export default function CheckoutPage() {
       getStoreSettings().then(s => {
         setSettings(s)
         trackViewItem({ item_id: s.product_id, item_name: s.product_name, price: s.product_price }, s.product_currency)
+      })
+      getBookLanguages().then(langs => {
+        setLanguages(langs)
+        // Keep the current selection if it's still offered; otherwise default
+        // to the first active language (list is already sorted by sort_order).
+        setBookLanguage(current => langs.some(l => l.language_code === current) ? current : (langs[0]?.language_code ?? 'ar'))
       })
       const params = new URLSearchParams(window.location.search)
       const err = params.get('error')
@@ -111,12 +116,12 @@ export default function CheckoutPage() {
 
         <div style={{background:'#fff',border:`1px solid ${BR}`,borderRadius:16,padding:20,marginBottom:14}}>
           <div style={{fontSize:11,fontWeight:900,color:P,textTransform:'uppercase',marginBottom:14}}>لغة الكتاب</div>
-          <div className="checkout-lang-grid" role="radiogroup" aria-label="لغة الكتاب" style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8}}>
-            {LANGS.map(l=>(
-              <button key={l.id} type="button" role="radio" aria-checked={bookLanguage===l.id} onClick={()=>{setBookLanguage(l.id); trackSelectLanguage(l.id)}}
-                style={{minHeight:52,display:'flex',alignItems:'center',justifyContent:'center',gap:8,border:`1.5px solid ${bookLanguage===l.id?P:BR}`,background:bookLanguage===l.id?PL:'#fff',borderRadius:10,cursor:'pointer',fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif",transition:'all .15s'}}>
-                <span style={{fontSize:18}}>{l.flag}</span>
-                <span style={{fontSize:13,fontWeight:700,color:bookLanguage===l.id?P:T2}}>{l.label}</span>
+          <div className="checkout-lang-grid" role="radiogroup" aria-label="لغة الكتاب" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))',gap:8}}>
+            {languages.map(l=>(
+              <button key={l.language_code} type="button" role="radio" aria-checked={bookLanguage===l.language_code} onClick={()=>{setBookLanguage(l.language_code); trackSelectLanguage(l.language_code)}}
+                style={{minHeight:52,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:1,border:`1.5px solid ${bookLanguage===l.language_code?P:BR}`,background:bookLanguage===l.language_code?PL:'#fff',borderRadius:10,cursor:'pointer',fontFamily:"var(--font-tajawal),'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif",transition:'all .15s',padding:'6px 8px'}}>
+                <span style={{fontSize:13,fontWeight:700,color:bookLanguage===l.language_code?P:T2}}>{l.name_ar}</span>
+                <span style={{fontSize:10,color:bookLanguage===l.language_code?P:T3}}>{l.name_en}</span>
               </button>
             ))}
           </div>
@@ -164,7 +169,7 @@ export default function CheckoutPage() {
             <div style={{fontSize:11,color:T3,display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
               دليل التنظيف — PDF
               <span style={{display:'inline-flex',alignItems:'center',gap:3,fontWeight:700,color:P,background:'#fff',padding:'1px 7px',borderRadius:999,border:`1px solid ${BR}`}}>
-                {LANGS.find(l=>l.id===bookLanguage)?.flag} {LANGS.find(l=>l.id===bookLanguage)?.label}
+                {languages.find(l=>l.language_code===bookLanguage)?.name_ar ?? bookLanguage}
               </span>
             </div>
             <div style={{fontSize:11,fontWeight:700,color:P,marginTop:3}}>⚡ تحميل فوري + {settings.downloads_limit} تحميلات</div>
