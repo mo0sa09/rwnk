@@ -747,3 +747,101 @@ ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS customer_name TEXT;
 -- schema file ends up in the same correct state.
 -- ═══════════════════════════════════════════════════════════
 UPDATE public.store_settings SET email = 'info@rwnak.net' WHERE email = 'hello@rwnk.co';
+
+-- ═══════════════════════════════════════════════════════════
+-- 18. BOOK LANGUAGES — dynamic, admin-managed replacement for the
+-- hardcoded ar/en pair above. The admin can add/disable/remove languages
+-- (French, Spanish, Turkish, ...) from the dashboard with no code change.
+-- book_languages.language_code is the single source of truth every other
+-- layer (checkout, download, email) resolves against; products.file_path_ar
+-- /file_path_en from §15 are NOT removed — they remain the pre-bilingual /
+-- pre-this-migration fallback for 'ar'/'en' specifically (see
+-- resolveBookLanguageFile in src/lib/download-resolver.ts), exactly as §15
+-- itself preserved the original single-file_path column as ITS fallback.
+-- ═══════════════════════════════════════════════════════════
+
+-- 18.1 Table. language_code is constrained to lowercase ascii (2-10 chars)
+-- since it is used verbatim as a Storage path segment (books/{code}/...) —
+-- this rules out path traversal ('..', '/') and accidental whitespace/case
+-- duplicates ('EN' vs 'en') at the database level, not just in the admin API.
+CREATE TABLE IF NOT EXISTS public.book_languages (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  language_code TEXT NOT NULL UNIQUE CHECK (language_code ~ '^[a-z]{2,10}$'),
+  name_ar     TEXT NOT NULL,
+  name_en     TEXT NOT NULL,
+  file_path   TEXT,
+  file_name   TEXT,
+  file_size   BIGINT,
+  mime_type   TEXT DEFAULT 'application/pdf',
+  is_active   BOOLEAN NOT NULL DEFAULT FALSE,
+  sort_order  INTEGER NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_book_languages_active ON public.book_languages(is_active);
+
+ALTER TABLE public.book_languages ENABLE ROW LEVEL SECURITY;
+-- Public can read only active languages (checkout's language picker) — same
+-- pattern as testimonials/faqs/features above. All writes (admin create/
+-- update/delete/upload) go through the service-role client, same as
+-- discount_codes, bypassing RLS entirely — there is no client-writable path.
+DROP POLICY IF EXISTS "book_languages_read" ON public.book_languages;
+CREATE POLICY "book_languages_read" ON public.book_languages FOR SELECT USING (is_active = TRUE);
+
+DROP TRIGGER IF EXISTS book_languages_updated_at ON public.book_languages;
+CREATE TRIGGER book_languages_updated_at BEFORE UPDATE ON public.book_languages FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- 18.2 Backfill 'ar'/'en' from the existing bilingual product columns (§15)
+-- so this migration never breaks a single existing purchase: every purchase
+-- row already has book_language IN ('ar','en') (enforced by the CHECK this
+-- section is about to replace), and both codes must already exist in
+-- book_languages before the FK below is added. ON CONFLICT (language_code)
+-- DO NOTHING is safe here (unlike the store_settings seed elsewhere in this
+-- file) because language_code has a REAL unique constraint to conflict
+-- against — re-running this is a true no-op once the row exists, it will
+-- never duplicate.
+INSERT INTO public.book_languages (language_code, name_ar, name_en, file_path, file_name, mime_type, is_active, sort_order)
+SELECT 'ar', 'العربية', 'Arabic',
+       COALESCE(pr.file_path_ar, pr.file_path),
+       CASE WHEN COALESCE(pr.file_path_ar, pr.file_path) IS NOT NULL
+            THEN split_part(COALESCE(pr.file_path_ar, pr.file_path), '/', -1) END,
+       'application/pdf', TRUE, 1
+FROM public.products pr
+ORDER BY pr.created_at ASC LIMIT 1
+ON CONFLICT (language_code) DO NOTHING;
+
+INSERT INTO public.book_languages (language_code, name_ar, name_en, file_path, file_name, mime_type, is_active, sort_order)
+SELECT 'en', 'الإنجليزية', 'English',
+       pr.file_path_en,
+       CASE WHEN pr.file_path_en IS NOT NULL THEN split_part(pr.file_path_en, '/', -1) END,
+       'application/pdf', (pr.file_path_en IS NOT NULL), 2
+FROM public.products pr
+ORDER BY pr.created_at ASC LIMIT 1
+ON CONFLICT (language_code) DO NOTHING;
+
+-- Defensive: if public.products has no rows at all (should never happen —
+-- it's seeded in §2 — but this migration must not silently skip creating
+-- 'ar'/'en' if it somehow does), fall back to inserting them with no file yet.
+INSERT INTO public.book_languages (language_code, name_ar, name_en, is_active, sort_order)
+VALUES ('ar', 'العربية', 'Arabic', TRUE, 1)
+ON CONFLICT (language_code) DO NOTHING;
+INSERT INTO public.book_languages (language_code, name_ar, name_en, is_active, sort_order)
+VALUES ('en', 'الإنجليزية', 'English', FALSE, 2)
+ON CONFLICT (language_code) DO NOTHING;
+
+-- 18.3 purchases.book_language: replace the hardcoded CHECK (ar,en) — which
+-- is exactly the hardcoding this feature exists to remove — with a FOREIGN
+-- KEY against book_languages(language_code). This is deliberately not just
+-- "remove the check": a FK gives two things a bare CHECK never could —
+-- (a) any new language the admin adds in the dashboard is immediately a
+-- valid book_language with zero migration, and (b) ON DELETE RESTRICT makes
+-- "a language with existing purchases cannot be deleted" (§12 of the spec)
+-- an actual database guarantee, not just an API-layer check that a future
+-- code change could accidentally bypass.
+ALTER TABLE public.purchases DROP CONSTRAINT IF EXISTS purchases_book_language_check;
+ALTER TABLE public.purchases DROP CONSTRAINT IF EXISTS purchases_book_language_fkey;
+ALTER TABLE public.purchases ADD CONSTRAINT purchases_book_language_fkey
+  FOREIGN KEY (book_language) REFERENCES public.book_languages(language_code) ON DELETE RESTRICT;
+
+CREATE INDEX IF NOT EXISTS idx_purchases_book_language ON public.purchases(book_language);
