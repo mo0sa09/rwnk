@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { C } from '@/lib/theme'
+import { supabase } from '@/lib/supabase'
 import { IconUpload, IconFileText, IconCheck, IconPlus } from '@tabler/icons-react'
 import { card, cardTitle, inp, label as labelStyle, focus, blur, btnPrimary, PageHeader, LoadingBlock, EmptyState, useToast, useConfirm } from './adminUi'
 
@@ -48,33 +49,34 @@ function formatDate(iso: string): string {
   try { return new Date(iso).toLocaleDateString('ar-KW', { year: 'numeric', month: 'short', day: 'numeric' }) } catch { return iso }
 }
 
-// Same XMLHttpRequest-based upload DigitalProductUpload.tsx uses — fetch()
-// cannot report upload progress, and a 50MB PDF is large enough for that to
-// matter to whoever's watching the admin panel.
-function uploadWithProgress(file: File, languageCode: string, onProgress: (pct: number) => void): Promise<{ path: string }> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest()
-    const form = new FormData()
-    form.append('file', file)
-    form.append('kind', 'book-pdf')
-    form.append('languageCode', languageCode)
-
-    xhr.upload.addEventListener('progress', e => {
-      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100))
-    })
-    xhr.addEventListener('load', () => {
-      try {
-        const json = JSON.parse(xhr.responseText)
-        if (xhr.status >= 200 && xhr.status < 300) resolve(json)
-        else reject(new Error(json.error ?? `فشل الرفع (HTTP ${xhr.status})`))
-      } catch {
-        reject(new Error('فشل الرفع — استجابة غير صالحة من الخادم'))
-      }
-    })
-    xhr.addEventListener('error', () => reject(new Error('فشل الرفع — تحققي من الاتصال')))
-    xhr.open('POST', '/api/admin/upload')
-    xhr.send(form)
+// Uploads straight from the browser to Supabase Storage using a short-lived
+// signed URL, instead of proxying the PDF through /api/admin/upload (a
+// Next.js serverless function). That route works fine for the small admin
+// images it also handles, but Vercel caps a serverless function's request
+// body at ~4.5MB regardless of this feature's 50MB limit — any larger PDF
+// got rejected by Vercel's platform layer before our code ever ran, and that
+// rejection isn't JSON, which is what produced "استجابة غير صالحة من
+// الخادم". This endpoint only ever hands the server the metadata (language
+// code, file name/size/type); the bytes never pass through our server, and
+// /api/admin/book-languages/upload-url still requires an authenticated admin
+// session before it will issue a token, scoped to one path, via the
+// service-role key — the bucket stays private throughout.
+async function uploadBookPdf(file: File, languageCode: string, onProgress: (pct: number) => void): Promise<{ path: string }> {
+  onProgress(10)
+  const res = await fetch('/api/admin/book-languages/upload-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ languageCode, fileName: file.name, fileSize: file.size, mimeType: file.type }),
   })
+  const prepared = await res.json().catch(() => null)
+  if (!res.ok || !prepared) throw new Error(prepared?.error ?? `فشل تحضير الرفع (HTTP ${res.status})`)
+
+  onProgress(35)
+  const { error } = await supabase.storage.from('products').uploadToSignedUrl(prepared.path, prepared.token, file, { contentType: 'application/pdf' })
+  if (error) throw new Error(error.message || 'فشل الرفع إلى التخزين')
+
+  onProgress(100)
+  return { path: prepared.path }
 }
 
 export function BookLanguagesTab() {
@@ -133,7 +135,7 @@ export function BookLanguagesTab() {
 
     setProgress(0)
     try {
-      const { path } = await uploadWithProgress(file, code, setProgress)
+      const { path } = await uploadBookPdf(file, code, setProgress)
       setForm(f => f ? { ...f, file_path: path, file_name: file.name, file_size: file.size } : f)
       toast.push('success', 'تم رفع الملف — اضغطي حفظ لإتمام العملية')
     } catch (e: any) {

@@ -14,18 +14,15 @@ const KINDS = {
   image:     { bucket: 'site-assets', prefix: 'content',   public: true,  maxMB: 4, types: ['image/png', 'image/jpeg', 'image/webp'] },
   hero:      { bucket: 'site-assets', prefix: 'hero',      public: true,  maxMB: 5, types: ['image/png', 'image/jpeg', 'image/webp'] },
   'product-pdf': { bucket: 'products', prefix: 'books',    public: false, maxMB: 50, types: ['application/pdf'] },
-  // Dynamic book-language PDFs (admin "لغات الكتاب" section) — the prefix is
-  // computed per-request from the submitted languageCode (see POST below),
-  // not fixed here, so this entry only carries the shared constraints.
-  'book-pdf':    { bucket: 'products', prefix: null,       public: false, maxMB: 50, types: ['application/pdf'] },
+  // Dynamic book-language PDFs used to be uploaded through this route as
+  // kind 'book-pdf', but a 50MB file proxied through a Vercel serverless
+  // function body hits Vercel's own ~4.5MB request-body cap before this code
+  // ever runs. That path now goes browser -> Supabase Storage directly via a
+  // signed upload URL — see /api/admin/book-languages/upload-url and
+  // src/components/admin/BookLanguagesTab.tsx. Removed here rather than left
+  // dead, so nothing new gets wired to the broken path by accident.
 } as const
 type Kind = keyof typeof KINDS
-
-// Same path-safety rule as the DB CHECK on book_languages.language_code
-// (supabase/schema.sql §18.1) — this is what gets interpolated into the
-// Storage path, so it's re-validated here independently of whatever the
-// database will later accept.
-const LANGUAGE_CODE_RE = /^[a-z]{2,10}$/
 
 export async function POST(request: NextRequest) {
   const { error: authErr } = await requireAdmin(request)
@@ -46,22 +43,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'صيغة الملف غير مدعومة' }, { status: 400 })
   }
 
-  let prefix: string = spec.prefix ?? ''
-  if (kind === 'book-pdf') {
-    const languageCode = String(form.get('languageCode') ?? '').trim().toLowerCase()
-    if (!LANGUAGE_CODE_RE.test(languageCode)) {
-      return NextResponse.json({ error: 'رمز اللغة غير صالح' }, { status: 400 })
-    }
-    // Recommended structure from the feature spec: books/{languageCode}/....
-    // A timestamp suffix (not a fixed book.pdf filename) means "replace"
-    // never overwrites the file an earlier request may still be mid-download
-    // from — the old object is left in place until the caller's follow-up
-    // PATCH switches book_languages.file_path to the new one, matching the
-    // same "upload new, then repoint, never delete-then-upload" pattern
-    // src/components/admin/DigitalProductUpload.tsx already uses for the
-    // legacy ar/en product columns.
-    prefix = `books/${languageCode}`
-  }
+  const prefix: string = spec.prefix ?? ''
 
   const sb = getAdminDb()
   const ext = file.name.split('.').pop() || 'bin'
