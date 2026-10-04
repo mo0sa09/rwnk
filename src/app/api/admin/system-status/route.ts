@@ -26,6 +26,8 @@ const EXPECTED_SCHEMA: ExpectedTable[] = [
   { table: 'products', columns: ['file_path', 'file_path_ar', 'file_path_en', 'version', 'version_ar', 'version_en'] },
   { table: 'purchases', columns: ['book_language', 'customer_name'] },
   { table: 'book_languages', columns: ['language_code', 'name_ar', 'name_en', 'file_path', 'file_name', 'file_size', 'mime_type', 'is_active', 'sort_order'] },
+  { table: 'admin_users', columns: ['email', 'full_name', 'role', 'is_active', 'invited_by'] },
+  { table: 'admin_invitations', columns: ['email', 'name', 'role', 'token_hash', 'expires_at', 'accepted_at', 'revoked_at', 'invited_by'] },
 ]
 
 // Server-only env vars (PAYMENT_GATEWAY, MYFATOORAH_*, service role key) are

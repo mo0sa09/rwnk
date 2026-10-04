@@ -845,3 +845,90 @@ ALTER TABLE public.purchases ADD CONSTRAINT purchases_book_language_fkey
   FOREIGN KEY (book_language) REFERENCES public.book_languages(language_code) ON DELETE RESTRICT;
 
 CREATE INDEX IF NOT EXISTS idx_purchases_book_language ON public.purchases(book_language);
+
+-- ═══════════════════════════════════════════════════════════
+-- 19. ADMIN STAFF — role-based admin access + email invitations.
+--
+-- Replaces trusting Supabase Auth user_metadata/app_metadata.role (what
+-- requireAdmin()/src/proxy.ts checked before this table existed) with a
+-- dedicated, service-role-only table as the actual single source of truth
+-- for "who is an admin and what can they do." This is a real security fix,
+-- not just a feature add: the user_metadata half of that old check is
+-- CLIENT-WRITABLE — any signed-in customer could call
+-- supabase.auth.updateUser({ data: { role: 'admin' } }) from their own
+-- browser and pass it. A live audit of this project (via the Supabase Auth
+-- admin API) found nobody has actually done this — exactly one account has
+-- any admin-ish signal at all, and it's the legitimate owner — but the
+-- check is removed regardless; it was never a legitimate access grant.
+-- ═══════════════════════════════════════════════════════════
+
+-- 19.1 admin_users — one row per Supabase Auth user who has dashboard
+-- access. role is checked server-side on every /api/admin/* request
+-- (src/lib/admin-roles.ts) — never inferred from anything the client sends.
+CREATE TABLE IF NOT EXISTS public.admin_users (
+  id          UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email       TEXT NOT NULL,
+  full_name   TEXT,
+  role        TEXT NOT NULL DEFAULT 'staff' CHECK (role IN ('super_admin','admin','staff')),
+  is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+  invited_by  UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
+-- No client access at all, in either direction — every read/write goes
+-- through /api/admin/staff/* using the service-role client (same pattern as
+-- discount_codes in §12). RLS enabled with zero permissive policies already
+-- denies anon/authenticated by default; this explicit FALSE policy just
+-- makes that intent unmistakable on inspection, same as discount_codes'
+-- own "codes_admin_only" policy.
+DROP POLICY IF EXISTS "admin_users_no_access" ON public.admin_users;
+CREATE POLICY "admin_users_no_access" ON public.admin_users FOR ALL USING (FALSE);
+
+DROP TRIGGER IF EXISTS admin_users_updated_at ON public.admin_users;
+CREATE TRIGGER admin_users_updated_at BEFORE UPDATE ON public.admin_users FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- 19.2 admin_invitations — a pending, single-use, time-limited invite to
+-- become an admin_users row. Only 'admin'/'staff' are invitable — there is
+-- exactly one super_admin (the store owner, bootstrapped in §19.3) and this
+-- flow never creates a second one. token_hash stores SHA-256 of the raw
+-- token the invitee actually receives by email; the raw token itself is
+-- never persisted anywhere.
+CREATE TABLE IF NOT EXISTS public.admin_invitations (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  email       TEXT NOT NULL,
+  name        TEXT,
+  role        TEXT NOT NULL DEFAULT 'staff' CHECK (role IN ('admin','staff')),
+  token_hash  TEXT NOT NULL UNIQUE,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  accepted_at TIMESTAMPTZ,
+  revoked_at  TIMESTAMPTZ,
+  invited_by  UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_invitations_email ON public.admin_invitations(email);
+
+ALTER TABLE public.admin_invitations ENABLE ROW LEVEL SECURITY;
+-- Same reasoning as admin_users — token hashes must never be reachable
+-- through a client-side query. Acceptance works by the CLIENT holding the
+-- unguessable raw token (received only via the invitation email) and
+-- POSTing it to /api/admin/invite/accept, which hashes and looks it up with
+-- the service-role key — never a direct table read of any kind.
+DROP POLICY IF EXISTS "admin_invitations_no_access" ON public.admin_invitations;
+CREATE POLICY "admin_invitations_no_access" ON public.admin_invitations FOR ALL USING (FALSE);
+
+-- 19.3 Bootstrap: preserve the CURRENT admin as super_admin, identified by
+-- this project's existing, already-deployed ADMIN_EMAIL env var — the exact
+-- same email requireAdmin()/src/proxy.ts have trusted since before this
+-- table existed. Confirmed during this audit that exactly one account in
+-- this project has any admin-ish signal at all, and it is this one.
+-- ON CONFLICT means this is safe to re-run, and this NEVER demotes a
+-- different super_admin that a later admin might promote by hand — it only
+-- ever (re-)grants super_admin to this one specific, already-trusted email.
+INSERT INTO public.admin_users (id, email, full_name, role, is_active)
+SELECT u.id, u.email, COALESCE(u.raw_user_meta_data->>'full_name', ''), 'super_admin', TRUE
+FROM auth.users u
+WHERE u.email = 'm0osa.des00@gmail.com'
+ON CONFLICT (id) DO UPDATE SET role = 'super_admin', is_active = TRUE;

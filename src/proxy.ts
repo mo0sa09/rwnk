@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { resolveAdminRole } from './lib/admin-roles'
 
 const PROTECTED_USER  = ['/library', '/account']
 const PROTECTED_ADMIN = ['/admin']
+// Public on purpose — this is where someone with NO account yet lands from
+// an invitation email. Gating it behind the admin-login redirect below
+// would make it impossible to ever accept an invite.
+const PUBLIC_ADMIN_PATHS = ['/admin/invite']
 
 // Next.js 16 renamed the `middleware.ts` convention to `proxy.ts` (and the
 // exported `middleware` function to `proxy`) — this file MUST keep this name
@@ -12,7 +17,8 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   const isUserRoute  = PROTECTED_USER.some(p  => pathname.startsWith(p))
-  const isAdminRoute = PROTECTED_ADMIN.some(p => pathname.startsWith(p))
+  const isPublicAdminPath = PUBLIC_ADMIN_PATHS.some(p => pathname.startsWith(p))
+  const isAdminRoute = !isPublicAdminPath && PROTECTED_ADMIN.some(p => pathname.startsWith(p))
 
   if (!isUserRoute && !isAdminRoute) return NextResponse.next({ request })
 
@@ -49,14 +55,13 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Admin route — check admin role in user metadata
+  // Admin route — role is resolved from the admin_users table (service-role
+  // read), the same trusted source /api/admin/* routes use via
+  // requireAdmin() — see src/lib/admin-roles.ts for why user_metadata.role
+  // is no longer part of this check (it's client-writable).
   if (isAdminRoute && user) {
-    const isAdmin =
-      user.email === process.env.ADMIN_EMAIL ||
-      user.user_metadata?.role === 'admin' ||
-      user.app_metadata?.role === 'admin'
-
-    if (!isAdmin) return NextResponse.redirect(new URL('/', request.url))
+    const role = await resolveAdminRole(user)
+    if (!role) return NextResponse.redirect(new URL('/', request.url))
   }
 
   return response

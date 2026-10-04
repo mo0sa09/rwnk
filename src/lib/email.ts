@@ -451,3 +451,96 @@ export async function sendTestEmail(to: string): Promise<TestEmailResult> {
   const result = await sendResendEmail('admin diagnostic test email', apiKey, from, to, 'RWNK — Resend test email', html)
   return { ...result, configured: true }
 }
+
+export interface AdminInvitationEmailParams {
+  to: string
+  name: string | null
+  role: 'admin' | 'staff'
+  storeName: string
+  // Full accept-invitation URL (https://.../admin/invite/{rawToken}) — the
+  // raw token is the bearer credential (same trust model as download
+  // tokens: unguessable = authorized), never the token_hash stored in the
+  // database. Nothing else sensitive (invitation id, role, email) is ever
+  // passed as a separate URL param — the accept page/API look all of that
+  // up server-side FROM the token alone.
+  acceptUrl: string
+  logoUrl?: string | null
+}
+
+const ROLE_LABEL_AR: Record<AdminInvitationEmailParams['role'], string> = { admin: 'مشرف', staff: 'عضو فريق' }
+
+// Reuses the exact same Resend send path (sendResendEmail) as every other
+// email in this file — no new provider integration. Same never-throws
+// contract: a failed invitation send is logged and reported to the caller,
+// which still created the invitation row regardless (the super-admin can
+// retry via "إعادة إرسال الدعوة").
+export async function sendAdminInvitationEmail(p: AdminInvitationEmailParams): Promise<SendEmailResult> {
+  const apiKey = process.env.RESEND_API_KEY
+  const from = process.env.EMAIL_FROM
+
+  if (!apiKey || !from) {
+    console.warn(`[email] admin invitation NOT sent to ${p.to} — RESEND_API_KEY/EMAIL_FROM not configured.`)
+    return { ok: false, reason: 'not_configured' }
+  }
+
+  const roleLabel = ROLE_LABEL_AR[p.role]
+  const greeting = p.name ? `مرحباً ${escapeHtml(p.name)}،` : 'مرحباً،'
+
+  const html = `<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escapeHtml(p.storeName)}</title>
+</head>
+<body style="margin:0;padding:0;background:#F4F2FA;font-family:Tahoma,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4F2FA;" bgcolor="#F4F2FA">
+    <tr><td style="padding:40px 16px;" align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#FFFFFF;border-radius:20px;overflow:hidden;border:1px solid #EDE8F5;box-shadow:0 4px 24px rgba(103,71,178,.06);" bgcolor="#FFFFFF">
+
+        <tr><td style="background:#6747B2;height:5px;line-height:5px;font-size:0;" bgcolor="#6747B2">&nbsp;</td></tr>
+
+        <tr><td style="padding:30px 36px 24px;text-align:center;border-bottom:1px solid #F1EEFA;">
+          ${p.logoUrl
+            ? `<img src="${p.logoUrl}" alt="${escapeHtml(p.storeName)}" style="max-width:150px;max-height:44px;width:auto;height:auto;display:inline-block;border:0;" />`
+            : `<div style="font-size:19px;font-weight:900;color:#6747B2;letter-spacing:.3px;">${escapeHtml(p.storeName)}</div>`}
+        </td></tr>
+
+        <tr><td style="padding:40px 36px 10px;text-align:center;">
+          <div style="width:60px;height:60px;border-radius:50%;background:#F7F5FE;margin:0 auto 20px;line-height:60px;font-size:28px;" bgcolor="#F7F5FE">🔐</div>
+          <div style="font-size:11px;font-weight:900;color:#6747B2;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">دعوة فريق العمل</div>
+          <div style="font-size:21px;font-weight:900;color:#1A1228;margin-bottom:14px;">دعوة للانضمام إلى لوحة تحكم ${escapeHtml(p.storeName)}</div>
+          <div style="font-size:14px;color:#4A4060;line-height:1.8;max-width:380px;margin:0 auto 6px;">${greeting}</div>
+          <div style="font-size:14px;color:#4A4060;line-height:1.8;max-width:380px;margin:0 auto 28px;">
+            تمت دعوتك للانضمام إلى فريق إدارة ${escapeHtml(p.storeName)} بصلاحية <strong style="color:#1A1228;">${roleLabel}</strong>.
+          </div>
+        </td></tr>
+
+        <tr><td style="padding:0 36px 36px;text-align:center;">
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+            <tr><td style="border-radius:13px;" bgcolor="#6747B2">
+              <a href="${p.acceptUrl}" style="display:inline-block;background:#6747B2;color:#FFFFFF;text-decoration:none;font-size:15px;font-weight:900;padding:17px 48px;border-radius:13px;box-shadow:0 6px 20px rgba(103,71,178,.32);">
+                قبول الدعوة
+              </a>
+            </td></tr>
+          </table>
+          <div style="font-size:11px;color:#9890AA;margin-top:16px;line-height:1.6;">
+            إذا لم يعمل الزر، انسخي هذا الرابط:<br>
+            <a href="${p.acceptUrl}" style="color:#6747B2;word-break:break-all;">${p.acceptUrl}</a>
+          </div>
+          <div style="font-size:11px;color:#9890AA;margin-top:16px;">تنتهي صلاحية هذه الدعوة بعد 48 ساعة. إذا لم تكوني تتوقعين هذه الدعوة، يمكنك تجاهل هذه الرسالة بأمان.</div>
+        </td></tr>
+
+        <tr><td style="background:#FAFAFA;padding:24px 28px;text-align:center;border-top:1px solid #F1EEFA;" bgcolor="#FAFAFA">
+          <div style="font-size:12px;font-weight:900;color:#4A4060;margin-bottom:6px;">${escapeHtml(p.storeName)} | RWNK</div>
+          <div style="font-size:10.5px;color:#C8C0D8;line-height:1.6;">© ${new Date().getFullYear()} ${escapeHtml(p.storeName)} — رسالة آلية، لا حاجة للرد عليها</div>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+
+  return sendResendEmail(`admin invitation (role=${p.role})`, apiKey, from, p.to, `دعوة للانضمام إلى لوحة تحكم ${p.storeName}`, html)
+}
