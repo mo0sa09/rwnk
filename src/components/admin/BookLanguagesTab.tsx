@@ -170,13 +170,17 @@ export function BookLanguagesTab() {
         ? { language_code: code, name_ar: form.name_ar, name_en: form.name_en, is_active: form.is_active, file_path: form.file_path, file_name: form.file_name, file_size: form.file_size }
         : { name_ar: form.name_ar, name_en: form.name_en, is_active: form.is_active, file_path: form.file_path, file_name: form.file_name, file_size: form.file_size }
       const res = await fetch(url, { method: isNew ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'حدث خطأ في الحفظ')
+      // .catch(() => null), not a bare await — a non-JSON response (e.g. an
+      // uncaught server exception rendering Next's default HTML error page)
+      // must not throw a cryptic "Unexpected token '<'" SyntaxError that
+      // hides the real failure; fall through to the HTTP-status message below.
+      const json = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(json?.error ?? `فشل الحفظ (HTTP ${res.status})`)
       toast.push('success', isNew ? 'تمت إضافة اللغة' : 'تم حفظ التعديلات')
       setForm(null)
       await load()
     } catch (e: any) {
-      toast.push('error', e.message ?? 'حدث خطأ')
+      toast.push('error', e?.message || 'حدث خطأ غير متوقع أثناء الحفظ')
     }
     setSaving(false)
   }
